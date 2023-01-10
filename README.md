@@ -11,15 +11,14 @@ provide more powerful interactive editing functionality.
 - Manually arrange specific reads in a sketchpad track to produce figures for publication.
 
 ## Roadmap
+### 0.1.0
+
+- [ ] Basic SAM/BAM visualization
 
 ### 0.2.0
 
-- Basic SAM/BAM visualization
+- [ ] Initial sketchpad functionality with support for dragging and dropping reads
 
 ### 0.3.0
 
-- Initial sketchpad functionality with support for dragging and dropping reads
-
-### 0.4.0
-
-- Extra sketchpad functionality (exclude/cut/copy)
+- [ ] Additional sketchpad functionality (exclude/cut/copy)
