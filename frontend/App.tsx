@@ -1,31 +1,54 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import './App.css'
+import { Flex } from "@chakra-ui/react";
+import { ReactElement, useEffect, useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+import "./App.css";
+import ErrorBoundary from "./components/ErrorBoundary";
+import SplitGrid from "./components/SplitGrid";
+import Toolbar from "./components/Toolbar";
+import { RefSeqContextProvider } from "./contexts/RefSeqContext";
+import { SplitGridContextProvider } from "./contexts/SplitGridContext";
+import LOG from "./lib/logger";
+
+const App = (): ReactElement => {
+  const [windowDimensions, setWindowDimensions] = useState({
+    height: window.innerHeight,
+    width: window.innerWidth,
+  });
+
+  const handleWindowResize = (): void => {
+    LOG.debug(`Window resized to ${window.innerHeight}x${window.innerWidth}`);
+    setWindowDimensions({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    });
+  };
+
+  useEffect(() => {
+    window.addEventListener("resize", handleWindowResize);
+    return () => {
+      window.removeEventListener("resize", handleWindowResize);
+    };
+  });
 
   return (
-    <div className="App">
-      <div>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </div>
-  )
-}
+    <RefSeqContextProvider>
+      <SplitGridContextProvider>
+        <Flex
+          flexDirection="column"
+          className="app"
+          height={`${windowDimensions.height}px`}
+          width={`${windowDimensions.width}px`}
+        >
+          <ErrorBoundary>
+            <Toolbar height="150px" width="full" />
+          </ErrorBoundary>
+          <ErrorBoundary>
+            <SplitGrid height="full" width="full" />
+          </ErrorBoundary>
+        </Flex>
+      </SplitGridContextProvider>
+    </RefSeqContextProvider>
+  );
+};
 
-export default App
+export default App;
