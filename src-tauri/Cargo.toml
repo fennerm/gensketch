@@ -22,7 +22,7 @@ log = "0.4"
 parking_lot = {version = "0.12", features = ["serde"] }
 rust-htslib = "0.40"
 serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 tauri = { version = "1.0.5", features = ["api-all"] }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/tauri-plugin-log" }
 thiserror = "1.0"

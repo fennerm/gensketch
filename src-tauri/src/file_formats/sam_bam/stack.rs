@@ -1,11 +1,9 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
+use serde::Serialize;
 
 use crate::alignment::Alignment;
-use crate::bio_util::genomic_coordinates::GenomicInterval;
-use crate::file_formats::sam_bam::aligned_read::AlignedPair;
 
 struct AlignmentNode<T> {
     pos: u64,
@@ -13,56 +11,66 @@ struct AlignmentNode<T> {
 }
 
 impl<T: Alignment> AlignmentNode<T> {
-    fn new(alignment: &T) -> Self {
-        Self { alignment: Rc::new(*alignment), pos: alignment.interval().start }
+    fn new(alignment: &Rc<T>) -> Self {
+        Self { alignment: Rc::clone(alignment), pos: alignment.interval().start }
     }
 }
 
-fn construct_treap_by_start_pos<T: Alignment>(alignments: &Vec<T>) -> TreapMap<u64, Rc<T>> {
-    alignments.iter().map(|alignment| (alignment.interval().start, Rc::new(alignment))).into()
-}
-
-/// Given a key in a TreapMap find the closest value which has key >= the input key and pop it from
-/// the tree.
-fn pop_next_pos<T, U>(treap: &TreapMap<U, Rc<T>>, key: &U) -> Option<Rc<T>> {
-    match treap.ceil(key) {
-        Some(next_pos) => {
-            Some(treap.remove(next_pos).context("Ceil is missing from treap (BUG)")?.1)
+fn pop_next_alignment<'a, T: Alignment>(
+    alignments: &'a mut Vec<AlignmentNode<T>>,
+    min_pos: u64,
+) -> Option<Rc<T>> {
+    let maybe_last = alignments.last();
+    if maybe_last.is_none() {
+        return None;
+    } else if let Some(last_alignment) = maybe_last {
+        if last_alignment.pos < min_pos {
+            return None;
         }
-        None => None,
     }
+    let mut low = 0;
+    let mut high = alignments.len();
+    let mut mid;
+    while low != high {
+        mid = low + high / 2;
+        if alignments[mid].pos < min_pos {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+    Some(alignments.remove(low).alignment)
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlignmentStack<T> {
     #[serde(skip_serializing)]
-    alignments: Vec<T>,
+    alignments: Vec<Rc<T>>,
 
     #[serde(skip_serializing)]
-    region: GenomicInterval,
-
     pub rows: Vec<Vec<Rc<T>>>,
 }
 
 impl<T: Alignment> AlignmentStack<T> {
-    pub fn new(alignments: Vec<T>, region: GenomicInterval) -> Self {
-        Self { alignments, rows: Vec::new(), region }
+    pub fn new(alignments: Vec<T>) -> Self {
+        let mut alignments: Vec<Rc<T>> = alignments.into_iter().map(|x| Rc::new(x)).collect();
+        alignments.sort_by(|a, b| b.interval().start.cmp(&a.interval().start));
+        Self { alignments, rows: Vec::new() }
     }
 
     pub fn stack_by_start_pos(&mut self) -> Result<()> {
         if self.alignments.len() == 0 {
-            return;
+            return Ok(());
         }
-        let nodes = self.alignments.iter().map(|alignment| AlignmentNode::new(alignment));
-        let mut treap = construct_treap_by_start_pos(&self.alignments);
+        let mut nodes: Vec<_> =
+            self.alignments.iter().map(|alignment| AlignmentNode::new(alignment)).collect();
 
-        while !treap.is_empty() {
-            let mut current_pos =
-                *treap.min().context("Attempted to take min of empty alignment treap (BUG)")?;
+        while !nodes.is_empty() {
+            let mut current_pos = nodes[0].pos;
             let mut row = Vec::new();
             loop {
-                match pop_next_pos(&treap, &current_pos) {
+                match pop_next_alignment(&mut nodes, current_pos) {
                     Some(next_alignment) => {
                         current_pos = next_alignment.interval().end;
                         row.push(next_alignment);
@@ -70,9 +78,7 @@ impl<T: Alignment> AlignmentStack<T> {
                     None => break,
                 }
             }
-            if !row.is_empty() {
-                self.rows.push(row);
-            }
+            self.rows.push(row);
         }
         Ok(())
     }

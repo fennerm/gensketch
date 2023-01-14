@@ -13,7 +13,7 @@ use typescript_definitions::TypeScriptifyTrait;
 
 use crate::interface::backend::Backend;
 use crate::interface::commands::{
-    add_alignment_track, add_split, default_reference, get_reference_sequence,
+    add_alignment_track, add_split, default_reference, get_alignments, get_reference_sequence,
     update_focused_region,
 };
 use crate::interface::typescript::export_typescript_definitions;
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
             add_alignment_track,
             add_split,
             default_reference,
-            // get_alignments,
+            get_alignments,
             get_reference_sequence,
             update_focused_region
         ])

@@ -5,9 +5,11 @@ use uuid::Uuid;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::refseq::{get_default_reference, ReferenceSequence};
 use crate::errors::{CommandError, CommandResult};
-// use crate::file_formats::sam_bam::stack::AlignmentStack;
+use crate::file_formats::sam_bam::aligned_read::AlignedPair;
+use crate::file_formats::sam_bam::stack::AlignmentStack;
 use crate::interface::backend::Backend;
 use crate::interface::events::emit_event;
+use crate::interface::track::Track;
 
 #[tauri::command]
 pub fn add_alignment_track(
@@ -46,30 +48,30 @@ pub fn default_reference() -> CommandResult<Option<ReferenceSequence>> {
     return Ok(get_default_reference()?);
 }
 
-// #[tauri::command]
-// pub fn get_alignments(
-//     state: tauri::State<Backend>,
-//     genomic_region: GenomicRegion,
-//     track_id: Uuid,
-// ) -> CommandResult<AlignmentStack<AlignedPair>> {
-//     let mut ref_seq_reader = state.ref_seq_reader.lock();
-//     let mut tracks = state.tracks.lock();
-//     let track = tracks.get_track(track_id)?;
-//     if let Track::Alignment(alignment_track) = track {
-//         match &mut *ref_seq_reader {
-//             Some(reader) => {
-//                 let refseq = reader.read(&genomic_region)?;
-//                 Ok(alignment_track.read_alignments(&genomic_region, &refseq)?)
-//             }
-//             None => Err(CommandError::ValidationError("No reference sequence loaded".to_owned())),
-//         }
-//     } else {
-//         Err(CommandError::ValidationError(format!(
-//             "Cannot call get_alignments on track {} (invalid track type)",
-//             track.name()
-//         )))
-//     }
-// }
+#[tauri::command]
+pub fn get_alignments(
+    state: tauri::State<Backend>,
+    genomic_region: GenomicRegion,
+    track_id: Uuid,
+) -> CommandResult<AlignmentStack<AlignedPair>> {
+    let mut ref_seq_reader = state.ref_seq_reader.lock();
+    let mut tracks = state.tracks.lock();
+    let track = tracks.get_track(track_id)?;
+    if let Track::Alignment(alignment_track) = track {
+        match &mut *ref_seq_reader {
+            Some(reader) => {
+                let refseq = reader.read(&genomic_region)?;
+                Ok(alignment_track.read_alignments(&genomic_region, &refseq)?)
+            }
+            None => Err(CommandError::ValidationError("No reference sequence loaded".to_owned())),
+        }
+    } else {
+        Err(CommandError::ValidationError(format!(
+            "Cannot call get_alignments on track {} (invalid track type)",
+            track.name()
+        )))
+    }
+}
 
 #[tauri::command]
 pub fn get_reference_sequence(

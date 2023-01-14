@@ -7,9 +7,9 @@ use uuid::Uuid;
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::sequence::SequenceView;
-use crate::file_formats::sam_bam::aligned_read::{pair_reads, AlignedPair, PairedReads};
+use crate::file_formats::sam_bam::aligned_read::{pair_reads, AlignedPair};
 use crate::file_formats::sam_bam::reader::BamReader;
-// use crate::file_formats::sam_bam::stack::AlignmentStack;
+use crate::file_formats::sam_bam::stack::AlignmentStack;
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -48,17 +48,17 @@ impl AlignmentTrack {
         Ok(Self { bam_reader, id: Uuid::new_v4(), name: name.to_owned(), bam_path: pathbuf })
     }
 
-    // pub fn read_alignments(
-    //     &mut self,
-    //     genomic_region: &GenomicRegion,
-    //     refseq: &SequenceView,
-    // ) -> Result<AlignmentStack<AlignedPair>> {
-    //     let reads = self.bam_reader.read(genomic_region, refseq)?;
-    //     let paired_reads = pair_reads(reads);
-    //     let mut stack = AlignmentStack::new(paired_reads, genomic_region.into());
-    //     stack.stack_by_start_pos();
-    //     Ok(stack)
-    // }
+    pub fn read_alignments(
+        &mut self,
+        genomic_region: &GenomicRegion,
+        refseq: &SequenceView,
+    ) -> Result<AlignmentStack<AlignedPair>> {
+        let reads = self.bam_reader.read(genomic_region, refseq)?;
+        let paired_reads = pair_reads(reads);
+        let mut stack = AlignmentStack::new(paired_reads);
+        stack.stack_by_start_pos()?;
+        Ok(stack)
+    }
 }
 
 #[derive(Debug, Serialize, TypeScriptify)]

@@ -1,12 +1,14 @@
+use std::convert::From;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use typescript_definitions::TypeScriptify;
 
 /// A set of genomic coordinates.
 ///
 /// Coordinates are always stored 0-indexed. Start/end is stored as u64 to account for large
 /// genomes which overflow u32.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TypeScriptify)]
 #[serde(rename_all = "camelCase")]
 pub struct GenomicRegion {
     /// Chromosome or contig name
@@ -32,7 +34,7 @@ impl fmt::Display for GenomicRegion {
 }
 
 // Simple interval with a start/end coordinate.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, TypeScriptify)]
 pub struct GenomicInterval {
     pub start: u64,
     pub end: u64,
@@ -82,6 +84,6 @@ mod tests {
     fn test_convert_genomic_region_to_interval() {
         let region = GenomicRegion::new("chrX", 1, 10000);
         let expected_interval = GenomicInterval::new(1, 10000);
-        assert_eq!(region.to(GenomicInterval), expected_interval);
+        assert_eq!(region.interval(), expected_interval);
     }
 }
