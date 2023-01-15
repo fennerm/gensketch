@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use serde::Serialize;
+use ts_rs::TS;
 
 use crate::alignment::Alignment;
 
@@ -42,13 +43,13 @@ fn pop_next_alignment<'a, T: Alignment>(
     Some(alignments.remove(low).alignment)
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "AlignmentStackData")]
+#[ts(export)]
 pub struct AlignmentStack<T> {
     #[serde(skip_serializing)]
     alignments: Vec<Rc<T>>,
-
-    #[serde(skip_serializing)]
     pub rows: Vec<Vec<Rc<T>>>,
 }
 

@@ -1,20 +1,20 @@
 import { ReactElement, ReactNode, createContext, useContext, useEffect, useState } from "react";
 
-import GenomicRegion from "../lib/GenomicRegion";
-import { getAlignments, getDefaultReference, listen } from "../lib/backends/tauri";
 import {
-  BackendAlignmentStack,
-  BackendAlignmentTrack,
-  BackendGenomicRegion,
-  BackendReferenceSequence,
-  BackendSplit,
-} from "../lib/events";
+  AlignmentStackData,
+  AlignmentTrackData,
+  GenomicRegionData,
+  ReferenceSequenceData,
+  SplitData,
+} from "../bindings";
+import GenomicRegion from "../lib/GenomicRegion";
+import { getDefaultReference, listen } from "../lib/backends/tauri";
 import logger from "../lib/logger";
 import { deepCopy } from "../lib/util";
 import { RefSeqContext } from "./RefSeqContext";
 
 interface SplitGridContextInterface {
-  reference: BackendReferenceSequence;
+  reference: ReferenceSequenceData;
   splits: SplitState[];
   setSplitWidths: (widths: number[]) => void;
   tracks: TrackState[];
@@ -34,7 +34,7 @@ export interface TrackState {
 }
 
 export interface TrackDataState {
-  [trackId: string]: BackendAlignmentStack;
+  [trackId: string]: AlignmentStackData;
 }
 
 export const SplitGridContext = createContext<SplitGridContextInterface>(
@@ -48,11 +48,11 @@ export const SplitGridContextProvider = ({
 }): ReactElement | null => {
   const [splits, setSplits] = useState<SplitState[]>([]);
   const [tracks, setTracks] = useState<TrackState[]>([]);
-  const [reference, setReference] = useState<BackendReferenceSequence | null>(null);
+  const [reference, setReference] = useState<ReferenceSequenceData | null>(null);
   const [trackData, setTrackData] = useState<TrackDataState>({});
   const refSeqContext = useContext(RefSeqContext);
 
-  const addSplit = (newSplit: BackendSplit): void => {
+  const addSplit = (newSplit: SplitData): void => {
     setSplits((splits) => {
       logger.debug(`Handling spit-added event: ${newSplit}`);
       const numSplits = splits.length;
@@ -74,7 +74,7 @@ export const SplitGridContextProvider = ({
     });
   };
 
-  const addTrack = (newTrack: BackendAlignmentTrack): void => {
+  const addTrack = (newTrack: AlignmentTrackData): void => {
     logger.debug(`Handling track-added event: ${JSON.stringify(newTrack)}`);
     setTracks((tracks) => {
       const numTracks = tracks.length;
@@ -118,8 +118,8 @@ export const SplitGridContextProvider = ({
 
   useEffect(() => {
     const unlistenCallbacks = [
-      listen("split-added", (event) => addSplit(event.payload as BackendSplit)),
-      listen("track-added", (event) => addTrack(event.payload as BackendAlignmentTrack)),
+      listen("split-added", (event) => addSplit(event.payload as SplitData)),
+      listen("track-added", (event) => addTrack(event.payload as AlignmentTrackData)),
       // listen("focused-region-updated", (event) =>
       //   updateAlignments(event.payload as BackendGenomicRegion)
       // ),

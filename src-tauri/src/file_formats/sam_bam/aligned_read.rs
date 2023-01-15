@@ -4,14 +4,16 @@ use std::collections::{HashMap, VecDeque};
 use anyhow::{Context, Result};
 use rust_htslib::bam::record::Record;
 use serde::Serialize;
-use typescript_definitions::TypeScriptify;
+use ts_rs::TS;
 
 use crate::alignment::Alignment;
 use crate::bio_util::genomic_coordinates::{GenomicInterval, GenomicRegion};
 use crate::bio_util::sequence::SequenceView;
 use crate::file_formats::sam_bam::diff::{iter_sequence_diffs, SequenceDiff};
 
-#[derive(Debug, Serialize, TypeScriptify)]
+#[derive(Debug, Serialize, TS)]
+#[ts(rename = "AlignedReadData")]
+#[ts(export)]
 pub struct AlignedRead {
     pub read_name: String,
     pub region: GenomicRegion,
@@ -42,8 +44,10 @@ impl AlignedRead {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "PairedReadsData")]
+#[ts(export)]
 pub struct PairedReads {
     read1: AlignedRead,
     // read2 is None when the other read in the pair is outside of the current window
@@ -73,8 +77,9 @@ impl Alignment for PairedReads {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct UnpairedRead {
     read: AlignedRead,
     interval: GenomicInterval,
@@ -93,8 +98,10 @@ impl Alignment for UnpairedRead {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "DiscordantReadData")]
+#[ts(export)]
 pub struct DiscordantRead {
     read: AlignedRead,
     interval: GenomicInterval,
@@ -113,8 +120,10 @@ impl Alignment for DiscordantRead {
     }
 }
 
-#[derive(Debug, Serialize, TypeScriptify)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", tag = "type")]
+#[ts(rename = "AlignedPairData")]
+#[ts(export)]
 pub enum AlignedPair {
     PairedReadsKind(PairedReads),
     UnpairedReadKind(UnpairedRead),

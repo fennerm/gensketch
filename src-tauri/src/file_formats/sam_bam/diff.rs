@@ -1,12 +1,15 @@
 use rust_htslib::bam::record::{Cigar, Record, Seq};
 use serde::Serialize;
+use ts_rs::TS;
 
 use crate::bio_util::genomic_coordinates::GenomicInterval;
 use crate::bio_util::sequence::SequenceView;
 use crate::util::same_enum_variant;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase", tag = "type")]
+#[ts(rename = "SequenceDiffData")]
+#[ts(export)]
 pub enum SequenceDiff {
     // Cigar=M or X. M in cigar string can mean either a match or a mismatch.
     Mismatch { interval: GenomicInterval, sequence: String },

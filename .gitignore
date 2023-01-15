@@ -1,6 +1,8 @@
 node_modules
 dist
 src-tauri/target
+frontend/bindings.ts
+src-tauri/bindings
 dist-ssr
 *.local
 

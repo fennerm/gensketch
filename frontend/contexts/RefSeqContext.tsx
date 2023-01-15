@@ -1,8 +1,8 @@
 import { ReactElement, ReactNode, createContext, useEffect, useState } from "react";
 
+import { GenomicRegionData } from "../bindings";
 import GenomicRegion from "../lib/GenomicRegion";
 import { getReferenceSequence, listen } from "../lib/backends/tauri";
-import { BackendGenomicRegion, BackendSplit } from "../lib/events";
 
 interface RefSeqContextInterface {
   sequence: string;
@@ -27,7 +27,7 @@ export const RefSeqContextProvider = ({ children }: { children?: ReactNode }): R
     }
   };
 
-  const handleFocusChange = (genomicRegion: BackendGenomicRegion): void => {
+  const handleFocusChange = (genomicRegion: GenomicRegionData): void => {
     const region = GenomicRegion.fromBackendEvent(genomicRegion);
     setFocusedRegion(region);
     updateReferenceSequence(region);
@@ -38,7 +38,7 @@ export const RefSeqContextProvider = ({ children }: { children?: ReactNode }): R
 
     const unlistenCallbacks = [
       listen("focused-region-updated", (event) => {
-        handleFocusChange(event.payload as BackendGenomicRegion);
+        handleFocusChange(event.payload as GenomicRegionData);
       }),
     ];
 

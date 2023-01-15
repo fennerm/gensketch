@@ -1,12 +1,14 @@
 use anyhow::{Context, Result};
 use serde::Serialize;
-use typescript_definitions::TypeScriptify;
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 
-#[derive(Debug, Serialize, TypeScriptify)]
+#[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "SplitData")]
+#[ts(export)]
 pub struct Split {
     pub id: Uuid,
     pub focused_region: Option<GenomicRegion>,
@@ -18,7 +20,9 @@ impl Split {
     }
 }
 
-#[derive(Debug, Serialize, TypeScriptify)]
+#[derive(Debug, Serialize, TS)]
+#[ts(rename = "SplitListData")]
+#[ts(export)]
 pub struct SplitList {
     pub splits: Vec<Split>,
 }

@@ -3,8 +3,11 @@ use std::path::PathBuf;
 use anyhow::Result;
 use serde::Serialize;
 use tauri::api::path::local_data_dir;
+use ts_rs::TS;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, TS)]
+#[ts(rename = "ReferenceSequenceData")]
+#[ts(export)]
 pub struct ReferenceSequence {
     pub name: String,
     pub path: PathBuf,

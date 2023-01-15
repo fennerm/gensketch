@@ -1,5 +1,5 @@
+import { GenomicRegionData } from "../bindings";
 import { ParseError } from "./errors";
-import { BackendGenomicRegion } from "./events";
 
 const GENOMIC_REGION_REGEX = /(?<seqName>.*):(?<start>[0-9]+)-?(?<end>[0-9]+)?/;
 
@@ -34,7 +34,7 @@ class GenomicRegion {
     return `${this.seqName}:${this.start}-${this.end}`;
   }
 
-  static fromBackendEvent(region: BackendGenomicRegion): GenomicRegion {
+  static fromBackendEvent(region: GenomicRegionData): GenomicRegion {
     return new GenomicRegion({ seqName: region.seqName, start: region.start, end: region.end });
   }
 

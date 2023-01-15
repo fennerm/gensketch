@@ -1,23 +1,23 @@
 import { invoke } from "@tauri-apps/api";
-import { listen as tauriListen } from "@tauri-apps/api/event";
 
-import GenomicRegion from "../GenomicRegion";
 import {
-  BackendAlignmentStack,
-  BackendAlignmentTrack,
-  BackendGenomicRegion,
-  BackendReferenceSequence,
-  BackendSplit,
-} from "../events";
+  AlignedPairData,
+  AlignmentStackData,
+  AlignmentTrackData,
+  GenomicRegionData,
+  ReferenceSequenceData,
+  SplitData,
+} from "../../bindings";
+import GenomicRegion from "../GenomicRegion";
 
 export const addAlignmentTrack = ({
   bamPath,
 }: {
   bamPath: string;
-}): Promise<BackendAlignmentTrack> => {
+}): Promise<AlignmentTrackData> => {
   return invoke("add_alignment_track", {
     bamPath,
-  }) as Promise<BackendAlignmentTrack>;
+  }) as Promise<AlignmentTrackData>;
 };
 
 export const addSplit = ({
@@ -25,30 +25,32 @@ export const addSplit = ({
   focusedRegion,
 }: {
   referencePath: string;
-  focusedRegion: GenomicRegion | BackendGenomicRegion;
-}): Promise<BackendSplit> => {
+  focusedRegion: GenomicRegion | GenomicRegionData;
+}): Promise<SplitData> => {
   return invoke("add_split", {
     referencePath,
     focusedRegion,
-  }) as Promise<BackendSplit>;
+  }) as Promise<SplitData>;
 };
 
 export const getAlignments = ({
   genomicRegion,
   trackId,
 }: {
-  genomicRegion: GenomicRegion | BackendGenomicRegion;
+  genomicRegion: GenomicRegion | GenomicRegionData;
   trackId: string;
-}): Promise<BackendAlignmentStack> => {
-  return invoke("get_alignments", { genomicRegion, trackId }) as Promise<BackendAlignmentStack>;
+}): Promise<AlignmentStackData<AlignedPairData>> => {
+  return invoke("get_alignments", { genomicRegion, trackId }) as Promise<
+    AlignmentStackData<AlignedPairData>
+  >;
 };
 
-export const getDefaultReference = (): Promise<BackendReferenceSequence> => {
-  return invoke("default_reference") as Promise<BackendReferenceSequence>;
+export const getDefaultReference = (): Promise<ReferenceSequenceData> => {
+  return invoke("default_reference") as Promise<ReferenceSequenceData>;
 };
 
 export const getReferenceSequence = (
-  genomicRegion: GenomicRegion | BackendGenomicRegion
+  genomicRegion: GenomicRegion | GenomicRegionData
 ): Promise<string> => {
   return invoke("get_reference_sequence", { genomicRegion }) as Promise<string>;
 };
@@ -58,8 +60,8 @@ export const updateFocusedRegion = ({
   genomicRegion,
 }: {
   splitId: string;
-  genomicRegion: GenomicRegion | BackendGenomicRegion;
-}): Promise<BackendSplit> => {
+  genomicRegion: GenomicRegion | GenomicRegionData;
+}): Promise<SplitData> => {
   return invoke("update_focused_region", { splitId, genomicRegion });
 };
 
