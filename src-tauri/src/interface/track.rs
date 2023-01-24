@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
-use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
@@ -11,10 +10,8 @@ use crate::file_formats::sam_bam::aligned_read::{pair_reads, AlignedPair};
 use crate::file_formats::sam_bam::reader::BamReader;
 use crate::file_formats::sam_bam::stack::AlignmentStack;
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(untagged)]
-#[ts(rename = "TrackData")]
-#[ts(export)]
 pub enum Track {
     Alignment(AlignmentTrack),
 }
@@ -33,10 +30,8 @@ impl Track {
     }
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename = "AlignmentTrackData")]
-#[ts(export)]
 pub struct AlignmentTrack {
     pub id: Uuid,
     #[serde(skip_serializing)]
@@ -65,10 +60,8 @@ impl AlignmentTrack {
     }
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename = "TrackListData")]
-#[ts(export)]
 pub struct TrackList {
     pub tracks: Vec<Track>,
 }

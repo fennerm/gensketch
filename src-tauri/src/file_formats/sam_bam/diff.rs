@@ -1,15 +1,12 @@
 use rust_htslib::bam::record::{Cigar, Record, Seq};
 use serde::Serialize;
-use ts_rs::TS;
 
 use crate::bio_util::genomic_coordinates::GenomicInterval;
 use crate::bio_util::sequence::SequenceView;
 use crate::util::same_enum_variant;
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-#[ts(rename = "SequenceDiffData")]
-#[ts(export)]
 pub enum SequenceDiff {
     // Cigar=M or X. M in cigar string can mean either a match or a mismatch.
     Mismatch { interval: GenomicInterval, sequence: String },
@@ -63,7 +60,7 @@ impl Iterator for IterAlignedPairsCigar {
             self.genome_pos += 1;
             self.read_pos += 1;
             return Some((
-                self.cigar[self.cigar_index],
+                self.cigar[self.cigar_index - 1],
                 Some(self.read_pos as usize - 1),
                 Some(self.genome_pos as u64 - 1),
             ));
@@ -71,12 +68,20 @@ impl Iterator for IterAlignedPairsCigar {
         if self.remaining_ins_bp > 0 {
             self.remaining_ins_bp -= 1;
             self.read_pos += 1;
-            return Some((self.cigar[self.cigar_index], Some(self.read_pos as usize - 1), None));
+            return Some((
+                self.cigar[self.cigar_index - 1],
+                Some(self.read_pos as usize - 1),
+                None,
+            ));
         }
         if self.remaining_del_bp > 0 {
             self.remaining_del_bp -= 1;
             self.genome_pos += 1;
-            return Some((self.cigar[self.cigar_index], None, Some(self.genome_pos as u64 - 1)));
+            return Some((
+                self.cigar[self.cigar_index - 1],
+                None,
+                Some(self.genome_pos as u64 - 1),
+            ));
         }
 
         while self.cigar_index < self.cigar.len() {
@@ -194,13 +199,18 @@ impl<'a> DiffAlignments<'a> {
     }
 }
 
-impl<'a, 'b> Iterator for DiffAlignments<'a> {
+impl<'a> Iterator for DiffAlignments<'a> {
     type Item = SequenceDiff;
 
     fn next(&mut self) -> Option<SequenceDiff> {
         while self.aligned_pair_index < self.aligned_pairs.len() {
             let aligned_pair = self.aligned_pairs[self.aligned_pair_index];
             if let (_, _, Some(ref_pos)) = aligned_pair {
+                if !self.refseq.contains(ref_pos) {
+                    // If the position is outside of the viewed region then we skip computing diff
+                    self.aligned_pair_index += 1;
+                    continue;
+                }
                 self.current_diff_ref_start = ref_pos;
             }
             let maybe_diff = match aligned_pair {
@@ -212,6 +222,7 @@ impl<'a, 'b> Iterator for DiffAlignments<'a> {
                 }
                 _ => None,
             };
+            self.aligned_pair_index += 1;
             if let Some(diff) = maybe_diff {
                 return Some(diff);
             }

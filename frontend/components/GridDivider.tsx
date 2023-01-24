@@ -1,8 +1,8 @@
 import { Box } from "@chakra-ui/react";
 import { ReactElement, useContext, useRef } from "react";
 
-import { SplitGridContext } from "../contexts/SplitGridContext";
-import { DIVIDER_PX, SPLIT_GRID_HEIGHT_FRACTION } from "../lib/constants";
+import { SplitContext, SplitGridApiContext, TrackContext } from "../contexts/SplitGridContext";
+import { DIVIDER_PX } from "../lib/constants";
 import LOG from "../lib/logger";
 import { sum } from "../lib/util";
 
@@ -11,6 +11,14 @@ export type DividerOrientation = "horizontal" | "vertical";
 // Minimum size that a split or track can be resized as percent of the split grid
 const MIN_CELL_PCT = 2;
 
+/**
+ * Divider between tracks/splits in the split grid which can be dragged to resize.
+ *
+ * @param props
+ * @param index = The index of the divider in the grid. E.g the 3rd horizontal divider has index=2.
+ * @param props.orientation = "horizontal" if this is a divider between tracks. "vertical" if this
+ *  is a divider between splits.
+ */
 export const GridDivider = ({
   height,
   width,
@@ -22,8 +30,10 @@ export const GridDivider = ({
   index: number;
   orientation: "horizontal" | "vertical";
 }): ReactElement => {
+  const trackContext = useContext(TrackContext);
+  const splitContext = useContext(SplitContext);
+  const splitGridApi = useContext(SplitGridApiContext);
   const ref = useRef<HTMLDivElement>(null);
-  const context = useContext(SplitGridContext);
 
   const adjustDimensions = ({
     currentDimensions,
@@ -60,42 +70,95 @@ export const GridDivider = ({
     return updatedDimensions;
   };
 
-  const handleMouseMove = (ev: MouseEvent) => {
-    if (ref.current === null) {
-      LOG.error("Missing ref for GridDivider!");
-      return;
+  const getMouseYPosPct = ({
+    currentRef,
+    mouseYPos,
+  }: {
+    currentRef: HTMLDivElement;
+    mouseYPos: number;
+  }) => {
+    if (mouseYPos <= currentRef.offsetTop) {
+      // Mouse dragged above split grid
+      return 0;
+    } else if (mouseYPos >= currentRef.offsetTop + currentRef.offsetHeight) {
+      // Mouse dragged below split grid
+      return 100;
+    } else {
+      return ((mouseYPos - currentRef.offsetTop) / currentRef.offsetHeight) * 100;
     }
-    if (ref.current === null) {
+  };
+
+  const getMouseXPosPct = ({
+    currentRef,
+    mouseXPos,
+  }: {
+    currentRef: HTMLDivElement;
+    mouseXPos: number;
+  }) => {
+    if (mouseXPos <= currentRef.offsetLeft) {
+      // Mouse dragged above split grid
+      return 0;
+    } else if (mouseXPos >= currentRef.offsetLeft + currentRef.offsetWidth) {
+      // Mouse dragged below split grid
+      return 100;
+    } else {
+      return ((mouseXPos - currentRef.offsetLeft) / currentRef.offsetWidth) * 100;
+    }
+  };
+
+  const horizontalResize = ({
+    currentRef,
+    mouseYPos,
+  }: {
+    currentRef: HTMLDivElement;
+    mouseYPos: number;
+  }): void => {
+    const mousePosPct = getMouseYPosPct({ currentRef, mouseYPos });
+    // const mousePosPct = (mouseYPos / window.innerHeight - (1 - SPLIT_GRID_HEIGHT_FRACTION)) * 100;
+    const currentDimensions = Array.from(trackContext.tracks.map((track) => track.heightPct));
+    const updatedTrackHeights = adjustDimensions({
+      mousePosPct,
+      currentDimensions,
+    });
+    LOG.debug(
+      `Handling divider drag event: mousePos=${mouseYPos}; ` +
+        `windowHeight=${window.innerHeight}; mousePosPct=${mousePosPct}; ` +
+        `initialTrackHeights=${currentDimensions} updatedTrackHeights=${updatedTrackHeights}`
+    );
+    splitGridApi.setTrackHeights(updatedTrackHeights);
+  };
+
+  const verticalResize = ({
+    currentRef,
+    mouseXPos,
+  }: {
+    currentRef: HTMLDivElement;
+    mouseXPos: number;
+  }): void => {
+    const mousePosPct = getMouseXPosPct({ currentRef, mouseXPos });
+    // const mousePosPct = (mouseXPos / window.innerWidth) * 100;
+    const currentDimensions = Array.from(splitContext.splits.map((split) => split.widthPct));
+    const updatedSplitWidths = adjustDimensions({
+      mousePosPct,
+      currentDimensions,
+    });
+    LOG.debug(
+      `Handling divider drag event: mousePos=${mouseXPos}; ` +
+        `windowWidth=${window.innerWidth}; mousePosPct=${mousePosPct}; ` +
+        `initialSplitWidths=${currentDimensions} updatedSplitWidths=${updatedSplitWidths}`
+    );
+    splitGridApi.setSplitWidths(updatedSplitWidths);
+  };
+
+  const handleMouseMove = (ev: MouseEvent) => {
+    const currentRef = ref.current;
+    if (currentRef === null) {
       return;
     }
     if (orientation === "horizontal") {
-      const mousePosPct =
-        (ev.clientY / window.innerHeight - (1 - SPLIT_GRID_HEIGHT_FRACTION)) * 100;
-      const currentDimensions = Array.from(context.tracks.map((track) => track.heightPct));
-      const updatedTrackHeights = adjustDimensions({
-        mousePosPct,
-        currentDimensions,
-      });
-      LOG.debug(
-        `Handling divider drag event: mousePos=${ev.clientY}; ` +
-          `windowHeight=${window.innerHeight}; mousePosPct=${mousePosPct}; ` +
-          `initialTrackHeights=${currentDimensions} updatedTrackHeights=${updatedTrackHeights}`
-      );
-      context.setTrackHeights(updatedTrackHeights);
+      horizontalResize({ currentRef, mouseYPos: ev.clientY });
     } else if (orientation === "vertical") {
-      // We'll need to adjust this if the split grid doesn't fill entire window width in future
-      const mousePosPct = (ev.clientX / window.innerWidth) * 100;
-      const currentDimensions = Array.from(context.splits.map((split) => split.widthPct));
-      const updatedSplitWidths = adjustDimensions({
-        mousePosPct,
-        currentDimensions,
-      });
-      LOG.debug(
-        `Handling divider drag event: mousePos=${ev.clientY}; ` +
-          `windowWidth=${window.innerWidth}; mousePosPct=${mousePosPct}; ` +
-          `initialSplitWidths=${currentDimensions} updatedSplitWidths=${updatedSplitWidths}`
-      );
-      context.setSplitWidths(updatedSplitWidths);
+      verticalResize({ currentRef, mouseXPos: ev.clientX });
     }
   };
 

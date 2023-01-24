@@ -58,8 +58,10 @@ impl From<serde_json::Error> for CommandError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum InternalError {
-    #[error("{msg}")]
-    InvalidAlignment { msg: String },
-    #[error("{msg}")]
-    InvalidReadPair { msg: String },
+    #[error("{seq_name} is not present in reference")]
+    InvalidSeqName { seq_name: String },
+    // #[error("{msg}")]
+    // InvalidAlignment { msg: String },
+    // #[error("{msg}")]
+    // InvalidReadPair { msg: String },
 }

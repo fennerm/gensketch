@@ -9,6 +9,7 @@ use rust_htslib::bam::Read;
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::sequence::SequenceView;
+use crate::errors::InternalError;
 use crate::file_formats::sam_bam::aligned_read::AlignedRead;
 
 pub fn map_tid_to_seq_name(bam_header: &HeaderView) -> HashMap<u32, String> {
@@ -60,7 +61,11 @@ impl BamReader {
         region: &GenomicRegion,
         refseq: &SequenceView,
     ) -> Result<Vec<AlignedRead>> {
-        self.reader.fetch((region.seq_name.as_bytes(), region.start, region.end))?;
+        if !self.tid_to_seq_name.values().any(|seq_name| *seq_name == region.seq_name) {
+            return Err(InternalError::InvalidSeqName { seq_name: region.seq_name.clone() })
+                .map_err(anyhow::Error::msg);
+        }
+        self.reader.fetch((region.seq_name.as_str(), region.start, region.end))?;
         let mut record = Record::new();
         let mut alignments = Vec::new();
         loop {

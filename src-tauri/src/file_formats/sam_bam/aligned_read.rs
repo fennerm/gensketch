@@ -4,16 +4,14 @@ use std::collections::{HashMap, VecDeque};
 use anyhow::{Context, Result};
 use rust_htslib::bam::record::Record;
 use serde::Serialize;
-use ts_rs::TS;
 
 use crate::alignment::Alignment;
 use crate::bio_util::genomic_coordinates::{GenomicInterval, GenomicRegion};
 use crate::bio_util::sequence::SequenceView;
 use crate::file_formats::sam_bam::diff::{iter_sequence_diffs, SequenceDiff};
 
-#[derive(Debug, Serialize, TS)]
-#[ts(rename = "AlignedReadData")]
-#[ts(export)]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AlignedRead {
     pub read_name: String,
     pub region: GenomicRegion,
@@ -44,10 +42,8 @@ impl AlignedRead {
     }
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename = "PairedReadsData")]
-#[ts(export)]
 pub struct PairedReads {
     read1: AlignedRead,
     // read2 is None when the other read in the pair is outside of the current window
@@ -60,7 +56,7 @@ impl PairedReads {
         match read2 {
             Some(inner_read2) => {
                 let start = cmp::min(read1.region.start, inner_read2.region.start);
-                let end = cmp::min(read1.region.end, inner_read2.region.end);
+                let end = cmp::max(read1.region.end, inner_read2.region.end);
                 Self { read1, read2: Some(inner_read2), interval: (start, end).into() }
             }
             None => {
@@ -77,9 +73,8 @@ impl Alignment for PairedReads {
     }
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
 pub struct UnpairedRead {
     read: AlignedRead,
     interval: GenomicInterval,
@@ -98,10 +93,8 @@ impl Alignment for UnpairedRead {
     }
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename = "DiscordantReadData")]
-#[ts(export)]
 pub struct DiscordantRead {
     read: AlignedRead,
     interval: GenomicInterval,
@@ -120,10 +113,8 @@ impl Alignment for DiscordantRead {
     }
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-#[ts(rename = "AlignedPairData")]
-#[ts(export)]
 pub enum AlignedPair {
     PairedReadsKind(PairedReads),
     UnpairedReadKind(UnpairedRead),
@@ -150,11 +141,13 @@ pub fn pair_reads(reads: Vec<AlignedRead>) -> Vec<AlignedPair> {
         existing_reads.push_front(read);
     }
     let mut pairs = Vec::new();
+    let mut i = 0;
+    let mut num_reads = reads_by_name.len();
     for (_, reads) in reads_by_name.iter_mut() {
         let read1 = reads.pop_front().unwrap();
         match &read1.mate_pos {
             Some(mate_pos) => {
-                if reads[0].region.seq_name == mate_pos.seq_name {
+                if read1.region.seq_name == mate_pos.seq_name {
                     let read2 = reads.pop_front();
                     let pair = PairedReads::new(read1, read2);
                     pairs.push(AlignedPair::PairedReadsKind(pair));
@@ -168,6 +161,7 @@ pub fn pair_reads(reads: Vec<AlignedRead>) -> Vec<AlignedPair> {
                 pairs.push(AlignedPair::UnpairedReadKind(pair));
             }
         }
+        i += 1;
     }
     pairs
 }

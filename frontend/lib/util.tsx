@@ -35,3 +35,12 @@ export const deepCopy = <T,>(source: T): T => {
       }, Object.create(Object.getPrototypeOf(source)))
     : (source as T);
 };
+
+export const monkeyPatchBigInt = () => {
+  Object.defineProperty(BigInt.prototype, "toJSON", {
+    get() {
+      "use strict";
+      return () => String(this);
+    },
+  });
+};

@@ -3,11 +3,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use serde::Serialize;
 use tauri::api::path::local_data_dir;
-use ts_rs::TS;
 
-#[derive(Debug, Serialize, TS)]
-#[ts(rename = "ReferenceSequenceData")]
-#[ts(export)]
+#[derive(Debug, Serialize)]
 pub struct ReferenceSequence {
     pub name: String,
     pub path: PathBuf,
@@ -20,7 +17,7 @@ pub fn get_default_reference() -> Result<Option<ReferenceSequence>> {
     let refseq = match local_data_dir() {
         Some(mut path) => {
             path.push("gensketch");
-            path.push("human_g1k_v37.fasta");
+            path.push("human_mtdna.fasta");
             Ok(Some(ReferenceSequence { name: "HG19".to_owned(), path }))
         }
         None => Ok(None),

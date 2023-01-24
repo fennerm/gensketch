@@ -8,7 +8,7 @@ use crate::errors::{CommandError, CommandResult};
 use crate::file_formats::sam_bam::aligned_read::AlignedPair;
 use crate::file_formats::sam_bam::stack::AlignmentStack;
 use crate::interface::backend::Backend;
-use crate::interface::events::emit_event;
+use crate::interface::events::{emit_event, FocusedRegionUpdated};
 use crate::interface::track::Track;
 
 #[tauri::command]
@@ -34,10 +34,10 @@ pub fn add_alignment_track(
 pub fn add_split(
     app: tauri::AppHandle,
     state: tauri::State<Backend>,
-    focused_region: GenomicRegion,
+    focused_region: Option<GenomicRegion>,
 ) -> CommandResult<serde_json::value::Value> {
     let mut splits = state.splits.lock();
-    let new_split = splits.add_split(Some(focused_region))?;
+    let new_split = splits.add_split(focused_region)?;
     let result_json = serde_json::value::to_value(&new_split)?;
     emit_event(&app, "split-added", &new_split)?;
     Ok(result_json)
@@ -48,12 +48,17 @@ pub fn default_reference() -> CommandResult<Option<ReferenceSequence>> {
     return Ok(get_default_reference()?);
 }
 
+// TODO Return nothing when window too large
 #[tauri::command]
 pub fn get_alignments(
     state: tauri::State<Backend>,
-    genomic_region: GenomicRegion,
+    genomic_region: Option<GenomicRegion>,
     track_id: Uuid,
 ) -> CommandResult<AlignmentStack<AlignedPair>> {
+    let genomic_region = match genomic_region {
+        Some(region) => region,
+        None => return Ok(AlignmentStack::default()),
+    };
     let mut ref_seq_reader = state.ref_seq_reader.lock();
     let mut tracks = state.tracks.lock();
     let track = tracks.get_track(track_id)?;
@@ -61,7 +66,9 @@ pub fn get_alignments(
         match &mut *ref_seq_reader {
             Some(reader) => {
                 let refseq = reader.read(&genomic_region)?;
-                Ok(alignment_track.read_alignments(&genomic_region, &refseq)?)
+                let alignments = alignment_track.read_alignments(&genomic_region, &refseq)?;
+                log::debug!("Fetched {} alignments in {}", alignments.len(), &genomic_region);
+                Ok(alignments)
             }
             None => Err(CommandError::ValidationError("No reference sequence loaded".to_owned())),
         }
@@ -94,8 +101,10 @@ pub fn update_focused_region(
 ) -> CommandResult<serde_json::value::Value> {
     let mut splits = state.splits.lock();
     let mut split = splits.get_split(split_id)?;
-    emit_event(&app, "focused-region-updated", &genomic_region)?;
+    let event =
+        FocusedRegionUpdated { split_id: split_id.clone(), genomic_region: genomic_region.clone() };
+    emit_event(&app, "focused-region-updated", &event)?;
     split.focused_region = genomic_region;
-    let result_json = serde_json::value::to_value(&split)?;
+    let result_json = serde_json::value::to_value(event)?;
     Ok(result_json)
 }

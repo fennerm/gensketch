@@ -14,6 +14,11 @@ impl SequenceView {
     pub fn new(sequence: Vec<u8>, offset: u64) -> Self {
         SequenceView { sequence, offset }
     }
+
+    pub fn contains(&self, pos: u64) -> bool {
+        pos > self.offset && pos - self.offset < self.sequence.len() as u64
+    }
+
     pub fn to_string(&self) -> Result<String> {
         Ok(String::from_utf8(self.sequence.to_owned())?)
     }

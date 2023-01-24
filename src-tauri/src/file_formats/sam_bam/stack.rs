@@ -2,7 +2,6 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use serde::Serialize;
-use ts_rs::TS;
 
 use crate::alignment::Alignment;
 
@@ -33,7 +32,7 @@ fn pop_next_alignment<'a, T: Alignment>(
     let mut high = alignments.len();
     let mut mid;
     while low != high {
-        mid = low + high / 2;
+        mid = (low + high) / 2;
         if alignments[mid].pos < min_pos {
             low = mid + 1;
         } else {
@@ -43,10 +42,8 @@ fn pop_next_alignment<'a, T: Alignment>(
     Some(alignments.remove(low).alignment)
 }
 
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename = "AlignmentStackData")]
-#[ts(export)]
 pub struct AlignmentStack<T> {
     #[serde(skip_serializing)]
     alignments: Vec<Rc<T>>,
@@ -56,8 +53,12 @@ pub struct AlignmentStack<T> {
 impl<T: Alignment> AlignmentStack<T> {
     pub fn new(alignments: Vec<T>) -> Self {
         let mut alignments: Vec<Rc<T>> = alignments.into_iter().map(|x| Rc::new(x)).collect();
-        alignments.sort_by(|a, b| b.interval().start.cmp(&a.interval().start));
+        alignments.sort_by(|a, b| a.interval().start.cmp(&b.interval().start));
         Self { alignments, rows: Vec::new() }
+    }
+
+    pub fn len(&self) -> usize {
+        return self.alignments.len();
     }
 
     pub fn stack_by_start_pos(&mut self) -> Result<()> {
@@ -82,5 +83,11 @@ impl<T: Alignment> AlignmentStack<T> {
             self.rows.push(row);
         }
         Ok(())
+    }
+}
+
+impl<T: Alignment> Default for AlignmentStack<T> {
+    fn default() -> Self {
+        return AlignmentStack::new(Vec::new());
     }
 }

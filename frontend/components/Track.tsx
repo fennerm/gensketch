@@ -1,36 +1,40 @@
-import { Box, Flex, HStack, VStack } from "@chakra-ui/react";
+import { Box, Flex, HStack } from "@chakra-ui/react";
 import { ReactElement, useContext } from "react";
 
-import { SplitGridContext } from "../contexts/SplitGridContext";
+import { AlignmentsContext, SplitContext, TrackState } from "../contexts/SplitGridContext";
+import AlignmentsView from "./AlignmentsView";
 import ErrorBoundary from "./ErrorBoundary";
-import GridCell from "./GridCell";
 import { GridDivider } from "./GridDivider";
 
 const Track = ({
-  index,
   height,
   width,
+  trackData,
 }: {
-  index: number;
   height: string;
   width: string;
+  trackData: TrackState;
 }): ReactElement => {
-  const splitGridContext = useContext(SplitGridContext);
-  const trackState = splitGridContext.tracks[index];
+  const splitContext = useContext(SplitContext);
+  const alignmentsContext = useContext(AlignmentsContext);
+
   return (
     <Flex className="track" height={height} width={width} flexDirection="column">
-      <Box backgroundColor="grey" width="full">
-        {trackState.name}
+      <Box className="track-label" backgroundColor="grey" width="full">
+        {trackData.name}
       </Box>
-      <Flex flexDirection="row" height="full" width="full">
-        {splitGridContext.splits.map((split, splitIndex: number) => {
+      <Flex className="split-container" flexDirection="row" height="full" width="full">
+        {splitContext.splits.map((split, splitIndex: number) => {
           return (
             <ErrorBoundary key={splitIndex}>
-              <HStack spacing="0px" height="full" width={`${split.widthPct}%`}>
-                <GridCell trackIndex={index} splitIndex={splitIndex} height="full" width="full">
-                  <div>Hi</div>
-                </GridCell>
-                {splitIndex != splitGridContext.splits.length - 1 && (
+              <HStack className="split" spacing="0px" height="full" width={`${split.widthPct}%`}>
+                <AlignmentsView
+                  trackId={trackData.id}
+                  splitId={split.id}
+                  width="full"
+                  height="full"
+                />
+                {splitIndex != splitContext.splits.length - 1 && (
                   <GridDivider
                     height="full"
                     width="2px"

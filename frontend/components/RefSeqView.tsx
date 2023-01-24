@@ -1,72 +1,187 @@
 import { Box } from "@chakra-ui/react";
-import { ReactElement, RefObject, useContext, useEffect, useRef, useState } from "react";
+import { useEventListener } from "@chakra-ui/react";
+import { render } from "@inlet/react-pixi";
+import * as PIXI from "pixi.js";
+import { ReactElement, useContext, useEffect, useRef, useState } from "react";
 
 import { RefSeqContext } from "../contexts/RefSeqContext";
-import GenomicRegion from "../lib/GenomicRegion";
+import { useElementSize } from "../hooks";
+import { PixiApplication } from "../lib/PixiApplication";
+import { getLength } from "../lib/genomicCoordinates";
+import LOG from "../lib/logger";
 
-const NUC_COLORS = {
-  A: "red",
-  C: "blue",
-  G: "green",
-  T: "purple",
-  N: "grey",
+interface NucColors {
+  [nuc: string]: number;
+}
+
+const NUC_COLORS: NucColors = {
+  A: 0xff0000, // red
+  C: 0x0000ff, // blue
+  G: 0x00ff00, // green
+  T: 0xa020f0, // purple
+  N: 0x808080, // grey
 };
 
+// https://medium.com/thinknum/writing-high-performance-react-pixi-code-c8c75414020b
+// Actually just use raw pixi - https://www.reddit.com/r/javascript/comments/9ev209/there_seems_to_be_2_libraries_to_use_pixi_with/
 const RefSeqView = ({
   height,
   width,
+  splitId,
 }: {
   height: string | number;
   width: string | number;
+  splitId: string;
 }): ReactElement => {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const context = useContext(RefSeqContext);
+  const refSeqContext = useContext(RefSeqContext);
+  const ref = useElementSize<HTMLDivElement>();
+  const [pixiApp, setPixiApp] = useState(() => new PixiApplication({ backgroundColor: 0xffffff }));
+  const renderedGraphics = useRef<PIXI.Graphics[]>([]);
 
-  const draw = (element: HTMLCanvasElement) => {
-    const canvas = element.getContext("2d");
-    if (canvas === null || boxRef.current === null) {
+  useEffect(() => {
+    if (ref.current === null) {
       return;
     }
-    console.log(`Redrawing. New width: ${boxRef.current.offsetWidth}`);
+    pixiApp.resize(ref.current.offsetWidth, ref.current.offsetHeight);
+    ref.current.appendChild(pixiApp.renderer.view);
 
-    element.width = boxRef.current.offsetWidth;
-    element.height = boxRef.current.offsetHeight;
-    const numNucs = context.focusedRegion.length();
-    const nucWidth = element.width / numNucs;
-    canvas.clearRect(0, 0, element.width, element.height);
-    canvas.font = "18px sans";
-    canvas.textAlign = "center";
+    return () => {
+      pixiApp.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    draw();
+  });
+
+  const drawBlankFiller = ({
+    stage,
+    width,
+    height,
+  }: {
+    stage: PIXI.Container;
+    width: number;
+    height: number;
+  }) => {
+    const filler = new PIXI.Graphics();
+    filler.beginFill(0x808080).drawRect(0, 0, width, height);
+    stage.addChild(filler);
+    renderedGraphics.current = [filler];
+  };
+
+  const drawNucLetter = ({
+    nuc,
+    stage,
+    x,
+    width,
+    style,
+  }: {
+    nuc: string;
+    stage: PIXI.Container;
+    x: number;
+    width: number;
+    style: PIXI.TextStyle;
+  }): void => {
+    const pixiNuc = new PIXI.Text(nuc, { ...style, fill: NUC_COLORS[nuc] });
+    pixiNuc.x = x;
+    stage.addChild(pixiNuc);
+  };
+
+  const drawNucRect = ({
+    nuc,
+    stage,
+    x,
+    width,
+    height,
+  }: {
+    nuc: string;
+    stage: PIXI.Container;
+    x: number;
+    width: number;
+    height: number;
+  }): void => {
+    const rect = new PIXI.Graphics();
+    rect.beginFill(NUC_COLORS[nuc]).drawRect(x, 0, width, height);
+    stage.addChild(rect);
+    renderedGraphics.current.push(rect);
+  };
+
+  const draw = () => {
+    LOG.debug("Redrawing RefSeqView...");
+    if (ref.current === null) {
+      return;
+    }
+    renderedGraphics.current.forEach((obj) => obj.destroy());
+    pixiApp.stage.removeChildren();
+    const splitContext = refSeqContext[splitId];
+    if (splitContext.focusedRegion === null) {
+      LOG.debug("Null focusedRegion in RefSeqView...");
+      drawBlankFiller({
+        width: ref.current.offsetWidth,
+        height: ref.current.offsetHeight,
+        stage: pixiApp.stage,
+      });
+      return;
+    }
+
+    const numNucs = Number(getLength(splitContext.focusedRegion));
 
     if (numNucs > 1000) {
-      canvas.fillStyle = "grey";
-      canvas.fillRect(0, 0, element.width, element.height);
+      drawBlankFiller({
+        width: ref.current.offsetWidth,
+        height: ref.current.offsetHeight,
+        stage: pixiApp.stage,
+      });
       return;
     }
 
-    for (let i = 0; i < context.focusedRegion.length(); i++) {
-      let nuc = context.sequence.charAt(i);
-      canvas.fillStyle = NUC_COLORS[nuc];
+    let style = new PIXI.TextStyle({
+      align: "center",
+      fontFamily: "monospace",
+      fontSize: 18,
+    });
+
+    const nucWidth = ref.current.offsetWidth / numNucs;
+    LOG.debug(
+      `Redrawing RefSeqView with nucWidth=${nucWidth}, numNucs=${numNucs}, region=${JSON.stringify(
+        splitContext.focusedRegion
+      )}, width=${ref.current.offsetWidth}, height=${ref.current.offsetHeight}`
+    );
+    for (let i = 0; i < getLength(splitContext.focusedRegion); i++) {
+      const nuc = splitContext.sequence.charAt(i);
+      style.stroke = NUC_COLORS[nuc];
+      const x = i * nucWidth;
+      renderedGraphics.current = [];
       if (numNucs < 200) {
-        canvas.fillText(nuc, i * nucWidth, element.height, nucWidth);
+        drawNucLetter({ nuc, stage: pixiApp.stage, x, width: nucWidth, style });
       } else {
-        canvas.fillRect(i * nucWidth, 0, nucWidth, element.height);
+        drawNucRect({
+          nuc,
+          stage: pixiApp.stage,
+          x,
+          width: nucWidth,
+          height: ref.current.offsetHeight,
+        });
       }
     }
   };
 
-  useEffect(() => {
-    if (!canvasRef.current) {
-      return;
+  const handleResize = (): void => {
+    LOG.debug("RefSeqView detected resize...");
+    if (ref.current !== null) {
+      pixiApp.resize(ref.current.offsetWidth, ref.current.offsetHeight);
+      draw();
     }
-    draw(canvasRef.current);
-  });
+  };
 
-  return (
-    <Box className="ref-seq" ref={boxRef} height={height} width={width}>
-      <canvas ref={canvasRef}></canvas>
-    </Box>
-  );
+  useEffect(() => {
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return <Box className="ref-seq" ref={ref} height={height} width={width}></Box>;
 };
 
 export default RefSeqView;

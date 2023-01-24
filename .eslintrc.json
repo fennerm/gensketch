@@ -1,7 +1,30 @@
 {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+        "@typescript-eslint",
+        "eslint-plugin-node"
+    ],
     "extends": [
       "eslint:recommended",
       "plugin:@typescript-eslint/eslint-recommended",
       "prettier"
+    ],
+    "ignorePatterns": ["src-tauri"],
+    "parserOptions": {
+        "ecmaVersion": 2021,
+        "project": "./tsconfig.json"
+    },
+    "rules": {
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": ["error"]
+    },
+    "@typescript-eslint/no-unused-vars": [
+        "error",
+        { 
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "caughtErrorsIgnorePattern": "^_"
+        }
     ]
 }

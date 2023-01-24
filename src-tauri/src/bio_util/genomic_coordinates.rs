@@ -2,20 +2,21 @@ use std::convert::From;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use serde_with::{serde_as, DisplayFromStr};
 
 /// A set of genomic coordinates.
 ///
 /// Coordinates are always stored 0-indexed. Start/end is stored as u64 to account for large
 /// genomes which overflow u32.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde_as]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
-#[ts(rename = "GenomicRegionData")]
 pub struct GenomicRegion {
     /// Chromosome or contig name
     pub seq_name: String,
+    #[serde_as(as = "DisplayFromStr")]
     pub start: u64,
+    #[serde_as(as = "DisplayFromStr")]
     pub end: u64,
 }
 
@@ -36,12 +37,13 @@ impl fmt::Display for GenomicRegion {
 }
 
 // Simple interval with a start/end coordinate.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, TS)]
+#[serde_as]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(rename = "GenomicIntervalData")]
-#[ts(export)]
 pub struct GenomicInterval {
+    #[serde_as(as = "DisplayFromStr")]
     pub start: u64,
+    #[serde_as(as = "DisplayFromStr")]
     pub end: u64,
 }
 

@@ -3,8 +3,11 @@ name = "gensketch"
 version = "0.1.0"
 description = "Genomics data viewer and sketchpad"
 authors = ["fennerm"]
+keywords = ["genomics", "viewer", "sketchpad", "ngs", "sequencing", "alignment", "bam", "sam"]
 license = "AGPL-3.0"
 repository = "https://github.com/fennerm/gensketch"
+readme = "README.md"
+publish = false
 default-run = "gensketch"
 edition = "2021"
 rust-version = "1.64"
@@ -22,11 +25,12 @@ log = "0.4"
 parking_lot = {version = "0.12", features = ["serde"] }
 rust-htslib = "0.40"
 serde_json = "1.0"
+serde_with = "2.2.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 tauri = { version = "1.0.5", features = ["api-all"] }
-# tauri-plugin-log = { git = "https://github.com/tauri-apps/tauri-plugin-log" }
+# Pinning to an older rev because newer versions cause workspace inheritance errors
+tauri-plugin-log = { git = "https://github.com/tauri-apps/tauri-plugin-log", rev = "85d45c1c42" }
 thiserror = "1.0"
-ts-rs = { version = "6.2", features = ["serde-compat", "uuid-impl"] }
 # 1/14/23 ts-rs currently only works with uuid 0.8
 uuid = {version="0.8", features = ["serde", "v4"] }
 
