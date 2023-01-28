@@ -1,13 +1,13 @@
 import { Event } from "@tauri-apps/api/event";
-import { ReactElement, ReactNode, createContext, useEffect, useState } from "react";
+import { ReactElement, ReactNode, createContext, useState } from "react";
 
 import { FocusedRegionUpdated, GenomicRegion, SplitData } from "../bindings";
+import { useBackendListener } from "../hooks";
 import {
   getReferenceSequence,
   listenForFocusedRegionUpdated,
   listenForSplitAdded,
 } from "../lib/backend";
-import { getLength } from "../lib/genomicCoordinates";
 import LOG from "../lib/logger";
 
 interface RefSeqContextInterface {
@@ -19,11 +19,15 @@ interface RefSeqContextInterface {
 
 export const RefSeqContext = createContext<RefSeqContextInterface>({} as RefSeqContextInterface);
 
-export const RefSeqContextProvider = ({ children }: { children?: ReactNode }): ReactElement => {
+export const RefSeqContextProvider = ({
+  children,
+}: {
+  readonly children?: ReactNode;
+}): ReactElement => {
   const [splitData, setSplitData] = useState<RefSeqContextInterface>({});
 
   const getReferenceSequenceSafe = (genomicRegion: GenomicRegion | null): Promise<string> => {
-    if (genomicRegion !== null && getLength(genomicRegion) < 1000) {
+    if (genomicRegion !== null) {
       return getReferenceSequence(genomicRegion);
     } else {
       return new Promise((resolve) => "");
@@ -65,20 +69,10 @@ export const RefSeqContextProvider = ({ children }: { children?: ReactNode }): R
       });
   };
 
-  useEffect(() => {
-    const unlistenCallbacks = [
-      listenForSplitAdded((event) => addSplit(event.payload)),
-      listenForFocusedRegionUpdated((event: Event<FocusedRegionUpdated>) =>
-        handleFocusChange(event.payload)
-      ),
-    ];
-
-    return () => {
-      unlistenCallbacks.map((unlisten) => {
-        unlisten.then((f) => f());
-      });
-    };
-  }, []);
+  useBackendListener(listenForSplitAdded, (event) => addSplit(event.payload));
+  useBackendListener(listenForFocusedRegionUpdated, (event: Event<FocusedRegionUpdated>) => {
+    handleFocusChange(event.payload);
+  });
 
   return <RefSeqContext.Provider value={splitData}>{children}</RefSeqContext.Provider>;
 };

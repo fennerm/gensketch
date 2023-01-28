@@ -6,6 +6,7 @@ import AlertArea from "./components/AlertArea";
 import ErrorBoundary from "./components/ErrorBoundary";
 import SplitGrid from "./components/SplitGrid";
 import Toolbar from "./components/Toolbar";
+import { useEventListener } from "./hooks";
 import LOG from "./lib/logger";
 
 const MainWindow = (): ReactElement => {
@@ -22,12 +23,7 @@ const MainWindow = (): ReactElement => {
     });
   };
 
-  useEffect(() => {
-    window.addEventListener("resize", handleWindowResize);
-    return () => {
-      window.removeEventListener("resize", handleWindowResize);
-    };
-  }, []);
+  useEventListener("resize", handleWindowResize);
 
   return (
     <Flex

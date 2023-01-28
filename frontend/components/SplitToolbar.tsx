@@ -8,7 +8,7 @@ import LOG from "../lib/logger";
 
 const MIN_FOCUSED_REGION = 20;
 
-const SplitToolbar = ({ split }: { split: SplitState }): ReactElement => {
+const SplitToolbar = ({ split }: { readonly split: SplitState }): ReactElement => {
   const [inputRegion, setInputRegion] = useState<string>("");
 
   const handleFocusedRegionUpdate = (event: KeyboardEvent): void => {

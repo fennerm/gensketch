@@ -1,7 +1,8 @@
-import { ReactElement, ReactNode, createContext, useEffect, useState } from "react";
+import { ReactElement, ReactNode, createContext, useState } from "react";
 
 import { AlertData, AlertStatusUpdateParams, AlertStatusValue } from "../bindings";
-import { listen, listenForAlertStatusUpdated, listenForNewAlert } from "../lib/backend";
+import { useBackendListener } from "../hooks";
+import { listenForAlertStatusUpdated, listenForNewAlert } from "../lib/backend";
 import LOG from "../lib/logger";
 
 export interface AlertStatus extends AlertData {
@@ -9,15 +10,19 @@ export interface AlertStatus extends AlertData {
 }
 
 interface AlertContextInterface {
-  alerts: AlertStatus[];
-  addAlert: (alert: AlertData) => void;
-  updateAlertStatus: ({ alertID, newStatus }: AlertStatusUpdateParams) => void;
-  deactivateAlert: (alertID: string) => void;
+  readonly alerts: AlertStatus[];
+  readonly addAlert: (alert: AlertData) => void;
+  readonly updateAlertStatus: ({ alertID, newStatus }: AlertStatusUpdateParams) => void;
+  readonly deactivateAlert: (alertID: string) => void;
 }
 
 export const AlertContext = createContext<AlertContextInterface>({} as AlertContextInterface);
 
-export const AlertContextProvider = ({ children }: { children?: ReactNode }): ReactElement => {
+export const AlertContextProvider = ({
+  children,
+}: {
+  readonly children?: ReactNode;
+}): ReactElement => {
   const [alerts, setAlerts] = useState<AlertStatus[]>([]);
 
   const addAlert = (alert: AlertData): void => {
@@ -56,18 +61,8 @@ export const AlertContextProvider = ({ children }: { children?: ReactNode }): Re
     });
   };
 
-  useEffect(() => {
-    const unlistenCallbacks = [
-      listenForNewAlert((event) => addAlert(event.payload)),
-      listenForAlertStatusUpdated((event) => updateAlertStatus(event.payload)),
-    ];
-
-    return () => {
-      unlistenCallbacks.map((unlisten) => {
-        unlisten.then((f) => f());
-      });
-    };
-  }, []);
+  useBackendListener(listenForNewAlert, (event) => addAlert(event.payload));
+  useBackendListener(listenForAlertStatusUpdated, (event) => updateAlertStatus(event.payload));
 
   const value = {
     alerts,

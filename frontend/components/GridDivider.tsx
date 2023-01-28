@@ -1,9 +1,10 @@
 import { Box } from "@chakra-ui/react";
-import { ReactElement, useContext, useRef } from "react";
+import { ReactElement, RefObject, useContext, useRef } from "react";
 
 import { SplitContext, SplitGridApiContext, TrackContext } from "../contexts/SplitGridContext";
 import { DIVIDER_PX } from "../lib/constants";
 import LOG from "../lib/logger";
+import { Size } from "../lib/types";
 import { sum } from "../lib/util";
 
 export type DividerOrientation = "horizontal" | "vertical";
@@ -19,27 +20,29 @@ const MIN_CELL_PCT = 2;
  * @param props.orientation = "horizontal" if this is a divider between tracks. "vertical" if this
  *  is a divider between splits.
  */
-export const GridDivider = ({
+export const GridDivider = <T extends HTMLElement>({
   height,
   width,
   index,
   orientation,
+  splitGridRef,
 }: {
-  height: string | number;
-  width: string | number;
+  height: Size;
+  width: Size;
   index: number;
-  orientation: "horizontal" | "vertical";
+  readonly orientation: DividerOrientation;
+  readonly splitGridRef: RefObject<T>;
 }): ReactElement => {
   const trackContext = useContext(TrackContext);
   const splitContext = useContext(SplitContext);
   const splitGridApi = useContext(SplitGridApiContext);
-  const ref = useRef<HTMLDivElement>(null);
+  // const ref = useRef<HTMLDivElement>(null);
 
   const adjustDimensions = ({
     currentDimensions,
     mousePosPct,
   }: {
-    currentDimensions: number[];
+    readonly currentDimensions: number[];
     mousePosPct: number;
   }): number[] => {
     // E.g start with 33%, 33%, 33%
@@ -71,49 +74,33 @@ export const GridDivider = ({
   };
 
   const getMouseYPosPct = ({
-    currentRef,
+    splitGridElement,
     mouseYPos,
   }: {
-    currentRef: HTMLDivElement;
+    readonly splitGridElement: T;
     mouseYPos: number;
   }) => {
-    if (mouseYPos <= currentRef.offsetTop) {
-      // Mouse dragged above split grid
-      return 0;
-    } else if (mouseYPos >= currentRef.offsetTop + currentRef.offsetHeight) {
-      // Mouse dragged below split grid
-      return 100;
-    } else {
-      return ((mouseYPos - currentRef.offsetTop) / currentRef.offsetHeight) * 100;
-    }
+    return ((mouseYPos - splitGridElement.offsetTop) / splitGridElement.offsetHeight) * 100;
   };
 
   const getMouseXPosPct = ({
-    currentRef,
+    splitGridElement,
     mouseXPos,
   }: {
-    currentRef: HTMLDivElement;
+    readonly splitGridElement: T;
     mouseXPos: number;
   }) => {
-    if (mouseXPos <= currentRef.offsetLeft) {
-      // Mouse dragged above split grid
-      return 0;
-    } else if (mouseXPos >= currentRef.offsetLeft + currentRef.offsetWidth) {
-      // Mouse dragged below split grid
-      return 100;
-    } else {
-      return ((mouseXPos - currentRef.offsetLeft) / currentRef.offsetWidth) * 100;
-    }
+    return ((mouseXPos - splitGridElement.offsetLeft) / splitGridElement.offsetWidth) * 100;
   };
 
   const horizontalResize = ({
-    currentRef,
+    splitGridElement,
     mouseYPos,
   }: {
-    currentRef: HTMLDivElement;
+    readonly splitGridElement: T;
     mouseYPos: number;
   }): void => {
-    const mousePosPct = getMouseYPosPct({ currentRef, mouseYPos });
+    const mousePosPct = getMouseYPosPct({ splitGridElement, mouseYPos });
     // const mousePosPct = (mouseYPos / window.innerHeight - (1 - SPLIT_GRID_HEIGHT_FRACTION)) * 100;
     const currentDimensions = Array.from(trackContext.tracks.map((track) => track.heightPct));
     const updatedTrackHeights = adjustDimensions({
@@ -129,13 +116,13 @@ export const GridDivider = ({
   };
 
   const verticalResize = ({
-    currentRef,
+    splitGridElement,
     mouseXPos,
   }: {
-    currentRef: HTMLDivElement;
+    readonly splitGridElement: T;
     mouseXPos: number;
   }): void => {
-    const mousePosPct = getMouseXPosPct({ currentRef, mouseXPos });
+    const mousePosPct = getMouseXPosPct({ splitGridElement, mouseXPos });
     // const mousePosPct = (mouseXPos / window.innerWidth) * 100;
     const currentDimensions = Array.from(splitContext.splits.map((split) => split.widthPct));
     const updatedSplitWidths = adjustDimensions({
@@ -151,14 +138,14 @@ export const GridDivider = ({
   };
 
   const handleMouseMove = (ev: MouseEvent) => {
-    const currentRef = ref.current;
-    if (currentRef === null) {
+    const splitGridElement = splitGridRef.current;
+    if (splitGridElement === null) {
       return;
     }
     if (orientation === "horizontal") {
-      horizontalResize({ currentRef, mouseYPos: ev.clientY });
+      horizontalResize({ splitGridElement, mouseYPos: ev.clientY });
     } else if (orientation === "vertical") {
-      verticalResize({ currentRef, mouseXPos: ev.clientX });
+      verticalResize({ splitGridElement, mouseXPos: ev.clientX });
     }
   };
 
@@ -177,7 +164,6 @@ export const GridDivider = ({
   return (
     <Box
       className="grid-divider"
-      ref={ref}
       cursor={orientation === "horizontal" ? "row-resize" : "col-resize"}
       backgroundColor="#000"
       height={height}

@@ -8,6 +8,7 @@ import {
   ReferenceSequenceData,
   SplitData,
 } from "../bindings";
+import { useBackendListener } from "../hooks";
 import {
   getAlignments,
   getDefaultReference,
@@ -80,7 +81,7 @@ export const AlignmentsContext = createContext<AlignmentsContextInterface>(
 export const SplitGridContextProvider = ({
   children,
 }: {
-  children?: ReactNode;
+  readonly children?: ReactNode;
 }): ReactElement | null => {
   const [splits, setSplits] = useState<SplitState[]>([]);
   const [tracks, setTracks] = useState<TrackState[]>([]);
@@ -116,7 +117,7 @@ export const SplitGridContextProvider = ({
     updateAlignments({
       splitIds: [newSplit.id],
       trackIds: getAllTrackIds(),
-      useExistingRegion: true,
+      genomicRegion: newSplit.focusedRegion,
     });
   };
 
@@ -172,8 +173,8 @@ export const SplitGridContextProvider = ({
     genomicRegion = null,
     useExistingRegion = false,
   }: {
-    trackIds: string[];
-    splitIds: string[];
+    trackIds: readonly string[];
+    splitIds: readonly string[];
     genomicRegion?: GenomicRegion | null;
     useExistingRegion?: boolean;
   }) => {
@@ -207,30 +208,23 @@ export const SplitGridContextProvider = ({
     });
   };
 
+  useBackendListener(listenForSplitAdded, (event) => addSplit(event.payload));
+  useBackendListener(listenForTrackAdded, (event) => addTrack(event.payload));
+  useBackendListener(listenForFocusedRegionUpdated, (event) => {
+    updateAlignments({
+      splitIds: [event.payload.splitId],
+      trackIds: getAllTrackIds(),
+      genomicRegion: event.payload.genomicRegion,
+    });
+  });
+
   useEffect(() => {
-    const unlistenCallbacks = [
-      listenForSplitAdded((event) => addSplit(event.payload)),
-      listenForTrackAdded((event) => addTrack(event.payload)),
-      listenForFocusedRegionUpdated((event) => {
-        updateAlignments({
-          splitIds: [event.payload.splitId],
-          trackIds: getAllTrackIds(),
-          genomicRegion: event.payload.genomicRegion,
-        });
-      }),
-    ];
     getDefaultReference().then((result) => {
       setReference(result);
     });
-
-    return () => {
-      unlistenCallbacks.map((unlisten) => {
-        unlisten.then((f) => f());
-      });
-    };
   }, []);
 
-  const setSplitWidthsPct = (widths: number[]): void => {
+  const setSplitWidthsPct = (widths: readonly number[]): void => {
     setSplits((splits) => {
       splits.map((split, index) => {
         split.widthPct = widths[index];
@@ -243,7 +237,7 @@ export const SplitGridContextProvider = ({
     return null;
   }
 
-  const setTrackHeightsPct = (heights: number[]): void => {
+  const setTrackHeightsPct = (heights: readonly number[]): void => {
     setTracks((tracks) => {
       tracks.map((track, index) => {
         track.heightPct = heights[index];
@@ -260,6 +254,7 @@ export const SplitGridContextProvider = ({
     setSplitWidths: setSplitWidthsPct,
     setTrackHeights: setTrackHeightsPct,
   };
+
   return (
     <TrackContext.Provider value={{ tracks, reference }}>
       <SplitContext.Provider value={{ splits }}>

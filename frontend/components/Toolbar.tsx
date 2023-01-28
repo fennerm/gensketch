@@ -5,9 +5,10 @@ import { GenomicRegion } from "../bindings";
 import { RefSeqContext } from "../contexts/RefSeqContext";
 import { SplitContext, TrackContext } from "../contexts/SplitGridContext";
 import { addAlignmentTrack, addSplit, openFileDialog } from "../lib/backend";
+import { Size } from "../lib/types";
 import SplitToolbar from "./SplitToolbar";
 
-const Toolbar = ({ height, width }: { height: string; width: string }): ReactElement => {
+const Toolbar = ({ height, width }: { height: Size; width: Size }): ReactElement => {
   const trackContext = useContext(TrackContext);
   const splitContext = useContext(SplitContext);
   const refSeqContext = useContext(RefSeqContext);

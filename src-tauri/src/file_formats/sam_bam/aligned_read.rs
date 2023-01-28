@@ -10,17 +10,29 @@ use crate::bio_util::genomic_coordinates::{GenomicInterval, GenomicRegion};
 use crate::bio_util::sequence::SequenceView;
 use crate::file_formats::sam_bam::diff::{iter_sequence_diffs, SequenceDiff};
 
+/// A single aligned read from a SAM/BAM file.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlignedRead {
     pub read_name: String,
     pub region: GenomicRegion,
+
+    /// Start position of paired read (None if read is unpaired)
     pub mate_pos: Option<GenomicRegion>,
+
+    /// Differences in this read compared to the reference sequence (i.e SNVs/indels/clipping)
     pub diffs: Vec<SequenceDiff>,
+
+    /// True if the alignment is in the reverse orientation
     pub is_reverse: bool,
 }
 
 impl AlignedRead {
+    /// Initialize an AlignedRead from a rust-htslib Record object (+ extra required metadata)
+    ///
+    /// # Arguments
+    ///
+    /// * `refseq` - A reference sequence view which spans the entirety of the read.
     pub fn from_record(
         record: &Record,
         seq_name: &str,
@@ -42,11 +54,12 @@ impl AlignedRead {
     }
 }
 
+/// A paired set of reads in which both reads align to the same chromosome/contig
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PairedReads {
     read1: AlignedRead,
-    // read2 is None when the other read in the pair is outside of the current window
+    /// read2 is None when the other read in the pair is outside of the current window
     read2: Option<AlignedRead>,
     interval: GenomicInterval,
 }
@@ -73,6 +86,10 @@ impl Alignment for PairedReads {
     }
 }
 
+/// A read which has no aligned mate.
+///
+/// These occur when paired-end sequencing was not used or if the mate has been filtered or is
+/// unmapped.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnpairedRead {
@@ -93,6 +110,7 @@ impl Alignment for UnpairedRead {
     }
 }
 
+/// A read which has an aligned mate but it is on a different chromosome/contig.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscordantRead {
@@ -132,6 +150,7 @@ impl Alignment for AlignedPair {
     }
 }
 
+/// Match aligned reads to their mate pairs
 pub fn pair_reads(reads: Vec<AlignedRead>) -> Vec<AlignedPair> {
     let mut reads_by_name: HashMap<String, VecDeque<AlignedRead>> = HashMap::new();
     let mut existing_reads;
@@ -142,7 +161,7 @@ pub fn pair_reads(reads: Vec<AlignedRead>) -> Vec<AlignedPair> {
     }
     let mut pairs = Vec::new();
     let mut i = 0;
-    let mut num_reads = reads_by_name.len();
+    let num_reads = reads_by_name.len();
     for (_, reads) in reads_by_name.iter_mut() {
         let read1 = reads.pop_front().unwrap();
         match &read1.mate_pos {

@@ -1,12 +1,12 @@
 import { invoke } from "@tauri-apps/api";
 import { open } from "@tauri-apps/api/dialog";
-import { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { Event, listen } from "@tauri-apps/api/event";
 
 import {
   AlertData,
   AlertStatusUpdateParams,
   AlignedPair,
+  AlignedRead,
   AlignmentStack,
   AlignmentTrackData,
   FocusedRegionUpdated,
@@ -14,8 +14,8 @@ import {
   GenomicRegion,
   ReferenceSequenceData,
   SplitData,
-  TrackData,
 } from "../../bindings";
+import { EventCallback, EventListener, UnlistenFn } from "../types";
 
 const convertCoordToBigInt = (region: GenomicRegion | GenomicInterval | null): void => {
   if (region === null) {
@@ -24,6 +24,16 @@ const convertCoordToBigInt = (region: GenomicRegion | GenomicInterval | null): v
 
   region.start = BigInt(region.start);
   region.end = BigInt(region.end);
+};
+
+export const convertReadCoordToBigInt = (read: AlignedRead | null): void => {
+  if (read === null) {
+    return;
+  }
+  convertCoordToBigInt(read.region);
+  read.diffs.forEach((diff) => {
+    convertCoordToBigInt(diff.interval);
+  });
 };
 
 export const addAlignmentTrack = ({
@@ -41,7 +51,7 @@ export const addSplit = ({
   focusedRegion,
 }: {
   referencePath: string;
-  focusedRegion: GenomicRegion | GenomicRegion | null;
+  readonly focusedRegion: GenomicRegion | GenomicRegion | null;
 }): Promise<SplitData> => {
   return invoke("add_split", {
     referencePath,
@@ -57,7 +67,7 @@ export const getAlignments = ({
   splitId,
   trackId,
 }: {
-  genomicRegion: GenomicRegion | GenomicRegion | null;
+  readonly genomicRegion: Readonly<GenomicRegion | GenomicRegion | null>;
   splitId: string;
   trackId: string;
 }): Promise<AlignmentStack<AlignedPair>> => {
@@ -65,16 +75,16 @@ export const getAlignments = ({
     alignments.rows.forEach((row: any[]) => {
       row.forEach((alignment: any) => {
         convertCoordToBigInt(alignment.interval);
+        let reads: AlignedRead[];
         if (alignment.type == "pairedReadsKind") {
-          if (alignment.read1 !== null) {
-            convertCoordToBigInt(alignment.read1.region);
-          }
-          if (alignment.read2 !== null) {
-            convertCoordToBigInt(alignment.read2.region);
-          }
+          reads = [alignment.read1, alignment.read2];
         } else {
+          reads = alignment.read;
           convertCoordToBigInt(alignment.read.region);
         }
+        reads.forEach((read) => {
+          convertReadCoordToBigInt(read);
+        });
       });
     });
     return alignments;
@@ -85,7 +95,7 @@ export const getDefaultReference = (): Promise<ReferenceSequenceData> => {
   return invoke("default_reference") as Promise<ReferenceSequenceData>;
 };
 
-export const getReferenceSequence = (genomicRegion: GenomicRegion): Promise<string> => {
+export const getReferenceSequence = (genomicRegion: Readonly<GenomicRegion>): Promise<string> => {
   return invoke("get_reference_sequence", { genomicRegion }) as Promise<string>;
 };
 
@@ -94,7 +104,7 @@ export const updateFocusedRegion = ({
   genomicRegion,
 }: {
   splitId: string;
-  genomicRegion: GenomicRegion | GenomicRegion;
+  readonly genomicRegion: GenomicRegion | GenomicRegion;
 }): Promise<SplitData> => {
   return invoke("update_focused_region", { splitId, genomicRegion }).then((splitData: any) => {
     convertCoordToBigInt(splitData.genomicRegion);
@@ -102,7 +112,7 @@ export const updateFocusedRegion = ({
   }) as Promise<SplitData>;
 };
 
-export const listenForSplitAdded = (callback: EventCallback<SplitData>): Promise<UnlistenFn> => {
+export const listenForSplitAdded: EventListener<SplitData> = (callback) => {
   const wrappedCallback = (event: Event<SplitData>): void => {
     convertCoordToBigInt(event.payload.focusedRegion);
     callback(event);
@@ -110,9 +120,7 @@ export const listenForSplitAdded = (callback: EventCallback<SplitData>): Promise
   return listen("split-added", wrappedCallback);
 };
 
-export const listenForFocusedRegionUpdated = (
-  callback: EventCallback<FocusedRegionUpdated>
-): Promise<UnlistenFn> => {
+export const listenForFocusedRegionUpdated: EventListener<FocusedRegionUpdated> = (callback) => {
   const wrappedCallback = (event: Event<FocusedRegionUpdated>): void => {
     convertCoordToBigInt(event.payload.genomicRegion);
     callback(event);
@@ -120,19 +128,15 @@ export const listenForFocusedRegionUpdated = (
   return listen("focused-region-updated", wrappedCallback);
 };
 
-export const listenForTrackAdded = (
-  callback: EventCallback<AlignmentTrackData>
-): Promise<UnlistenFn> => {
+export const listenForTrackAdded: EventListener<AlignmentTrackData> = (callback) => {
   return listen("track-added", callback);
 };
 
-export const listenForNewAlert = (callback: EventCallback<AlertData>): Promise<UnlistenFn> => {
+export const listenForNewAlert: EventListener<AlertData> = (callback) => {
   return listen("new-alert", callback);
 };
 
-export const listenForAlertStatusUpdated = (
-  callback: EventCallback<AlertStatusUpdateParams>
-): Promise<UnlistenFn> => {
+export const listenForAlertStatusUpdated: EventListener<AlertStatusUpdateParams> = (callback) => {
   return listen("new-status-updated", callback);
 };
 

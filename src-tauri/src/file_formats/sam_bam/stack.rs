@@ -74,7 +74,9 @@ impl<T: Alignment> AlignmentStack<T> {
             loop {
                 match pop_next_alignment(&mut nodes, current_pos) {
                     Some(next_alignment) => {
-                        current_pos = next_alignment.interval().end;
+                        // We force reads to have at least 1bp between them so that adjacent reads
+                        // don't look merged in the UI
+                        current_pos = next_alignment.interval().end + 1;
                         row.push(next_alignment);
                     }
                     None => break,

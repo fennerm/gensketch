@@ -3,7 +3,7 @@ import { Component, ErrorInfo, ReactNode } from "react";
 import LOG from "../lib/logger";
 
 interface Props {
-  children?: ReactNode;
+  readonly children?: ReactNode;
 }
 
 interface State {

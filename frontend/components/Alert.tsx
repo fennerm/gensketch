@@ -3,7 +3,8 @@ import { IconButton } from "@chakra-ui/react";
 import { Flex } from "@chakra-ui/react";
 import { ReactElement, useContext } from "react";
 
-import { AlertContext, AlertData } from "../contexts/AlertContext";
+import { AlertData } from "../bindings";
+import { AlertContext } from "../contexts/AlertContext";
 
 /**
  * An alert to be displayed to the user in the AlertArea
@@ -14,8 +15,8 @@ const Alert = ({
   alertData,
   display,
 }: {
-  alertData: AlertData;
-  display: boolean;
+  readonly alertData: AlertData;
+  readonly display: boolean;
 }): ReactElement => {
   const context = useContext(AlertContext);
 

@@ -5,18 +5,23 @@ use crate::bio_util::genomic_coordinates::GenomicInterval;
 use crate::bio_util::sequence::SequenceView;
 use crate::util::same_enum_variant;
 
+/// A sequence difference between an aligned read and the reference.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SequenceDiff {
+    /// A single base substitution.
     // Cigar=M or X. M in cigar string can mean either a match or a mismatch.
     Mismatch { interval: GenomicInterval, sequence: String },
 
+    /// An insertion of one or more bases which are not present in the reference.
     // Cigar=I
     Ins { interval: GenomicInterval, sequence: String },
 
+    /// A deletion of one or more bases which are present in the reference.
     // Cigar=D
     Del { interval: GenomicInterval },
 
+    /// Bases which have been softclipped (generally at the end of the read).
     // Cigar=S
     SoftClip { interval: GenomicInterval, sequence: String },
 }
@@ -126,11 +131,22 @@ fn iter_aligned_pairs_cigar(record: &Record) -> IterAlignedPairsCigar {
     IterAlignedPairsCigar::new(record.pos(), record.cigar().take().0)
 }
 
+/// Iterate across sequence differences in an aligned read from a SAM/BAM file.
 pub struct DiffAlignments<'a> {
+    /// Reference sequence overlapping the read.
     refseq: &'a SequenceView,
+
+    /// The genomic reference position where the diff which is currently being parsed began.
     current_diff_ref_start: u64,
+
+    /// The read sequence
     record_sequence: Seq<'a>,
+
+    /// The current position which is being iterated over from the aligned read
     aligned_pair_index: usize,
+
+    /// A vector of tuples of the form (current Cigar operation, current read position, current reference
+    /// position).
     aligned_pairs: Vec<(Cigar, Option<usize>, Option<u64>)>,
 }
 
@@ -145,6 +161,9 @@ impl<'a> DiffAlignments<'a> {
         }
     }
 
+    /// Collapse sequence differences which span multiple bases into a single SequenceDiff object.
+    ///
+    /// E.g required for Ins/Del diffs which commonly span multiple bases.
     fn collapse_diff(&mut self) -> SequenceDiff {
         let initial_aligned_pair = self.aligned_pairs[self.aligned_pair_index];
         let mut aligned_pair = initial_aligned_pair;
@@ -185,6 +204,12 @@ impl<'a> DiffAlignments<'a> {
         }
     }
 
+    /// Determine if a base with an M or X CIGAR operation has a mismatch.
+    ///
+    /// The CIGAR spec is a bit awkward regarding mismatches because M can mean either a match or a
+    /// mismatch. We handle this by directly comparing the read sequence to the reference sequence
+    /// at these positions. An alternative would be to parse the MD tag but since reads from
+    /// certain sequencers/aligners do not populate this tag its safer to just use the CIGAR.
     fn handle_possible_mismatch(&mut self, read_pos: usize, ref_pos: u64) -> Option<SequenceDiff> {
         let read_base = self.record_sequence[read_pos];
         let ref_base = self.refseq[ref_pos];
@@ -231,6 +256,7 @@ impl<'a> Iterator for DiffAlignments<'a> {
     }
 }
 
+/// Iterate across SequenceDiffs in a rust-htslib BAM/SAM Record.
 pub fn iter_sequence_diffs<'a>(record: &'a Record, refseq: &'a SequenceView) -> DiffAlignments<'a> {
     DiffAlignments::new(record, refseq)
 }

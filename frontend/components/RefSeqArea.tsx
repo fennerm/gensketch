@@ -1,8 +1,9 @@
 import { Flex, HStack } from "@chakra-ui/react";
-import { ReactElement, useContext, useEffect, useRef, useState } from "react";
+import { ReactElement, RefObject, useContext, useRef } from "react";
 
 import { SplitContext } from "../contexts/SplitGridContext";
 import { DIVIDER_PX } from "../lib/constants";
+import { Size } from "../lib/types";
 import ErrorBoundary from "./ErrorBoundary";
 import { GridDivider } from "./GridDivider";
 import RefSeqView from "./RefSeqView";
@@ -12,7 +13,15 @@ import RefSeqView from "./RefSeqView";
  *
  * Rendering of the refseq is handled in the child RefSeqView components (one for each split).
  */
-const RefSeqArea = ({ height, width }: { height: string; width: string }): ReactElement => {
+const RefSeqArea = <T extends HTMLElement>({
+  height,
+  width,
+  splitGridRef,
+}: {
+  height: Size;
+  width: Size;
+  readonly splitGridRef: RefObject<T>;
+}): ReactElement => {
   const splitContext = useContext(SplitContext);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -46,6 +55,7 @@ const RefSeqArea = ({ height, width }: { height: string; width: string }): React
                   width={`${DIVIDER_PX}px`}
                   orientation={"vertical"}
                   index={splitIndex}
+                  splitGridRef={splitGridRef}
                 />
               )}
             </HStack>

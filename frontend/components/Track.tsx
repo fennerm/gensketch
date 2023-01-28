@@ -1,22 +1,25 @@
 import { Box, Flex, HStack } from "@chakra-ui/react";
-import { ReactElement, useContext } from "react";
+import { ReactElement, RefObject, useContext } from "react";
 
-import { AlignmentsContext, SplitContext, TrackState } from "../contexts/SplitGridContext";
+import { SplitContext, TrackState } from "../contexts/SplitGridContext";
+import { DIVIDER_PX } from "../lib/constants";
+import { Size } from "../lib/types";
 import AlignmentsView from "./AlignmentsView";
 import ErrorBoundary from "./ErrorBoundary";
 import { GridDivider } from "./GridDivider";
 
-const Track = ({
+const Track = <T extends HTMLElement>({
   height,
   width,
   trackData,
+  splitGridRef,
 }: {
-  height: string;
-  width: string;
-  trackData: TrackState;
+  height: Size;
+  width: Size;
+  readonly trackData: TrackState;
+  readonly splitGridRef: RefObject<T>;
 }): ReactElement => {
   const splitContext = useContext(SplitContext);
-  const alignmentsContext = useContext(AlignmentsContext);
 
   return (
     <Flex className="track" height={height} width={width} flexDirection="column">
@@ -31,15 +34,16 @@ const Track = ({
                 <AlignmentsView
                   trackId={trackData.id}
                   splitId={split.id}
-                  width="full"
+                  style={{ width: `calc(100% - ${DIVIDER_PX}px)` }}
                   height="full"
                 />
                 {splitIndex != splitContext.splits.length - 1 && (
                   <GridDivider
                     height="full"
-                    width="2px"
+                    width={`${DIVIDER_PX}px`}
                     orientation={"vertical"}
                     index={splitIndex}
+                    splitGridRef={splitGridRef}
                   />
                 )}
               </HStack>
