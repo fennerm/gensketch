@@ -38,22 +38,13 @@ impl FastaReader {
 
 #[cfg(test)]
 mod tests {
-    use super::FastaReader;
+    use super::*;
     use crate::bio_util::genomic_coordinates::GenomicRegion;
-
-    use std::env;
-
-    fn get_test_ref_file() -> PathBuf {
-        let mut fasta_file = env::current_exe().unwrap();
-        fasta_file.pop();
-        fasta_file.push("test_data");
-        fasta_file.push("human-mtdna.fa");
-        fasta_file
-    }
+    use test_util_rs::data::get_test_data_path;
 
     #[test]
     fn test_reading() {
-        let fasta_file = get_test_ref_file();
+        let fasta_file = get_test_data_path("fake-genome.fa");
         let mut reader = FastaReader::new(fasta_file).unwrap();
         let region = GenomicRegion::new("mt", 0, 20);
         let sequence_view = reader.read(&region).unwrap();

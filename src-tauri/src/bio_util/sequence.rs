@@ -19,7 +19,7 @@ impl SequenceView {
     }
 
     pub fn contains(&self, pos: u64) -> bool {
-        pos > self.offset && pos - self.offset < self.sequence.len() as u64
+        pos >= self.offset && pos - self.offset < self.sequence.len() as u64
     }
 
     pub fn to_string(&self) -> Result<String> {
@@ -37,7 +37,7 @@ impl Index<u64> for SequenceView {
 
 #[cfg(test)]
 mod tests {
-    use super::SequenceView;
+    use super::*;
 
     #[test]
     pub fn test_sequence_view_indexing() {
@@ -59,6 +59,6 @@ mod tests {
     pub fn test_sequence_view_to_string() {
         let view = SequenceView::new("AGCT".as_bytes().to_vec(), 1000);
         let result = view.to_string().unwrap();
-        assert_eq!(result, "ACGT".to_owned());
+        assert_eq!(result, "AGCT".to_owned());
     }
 }

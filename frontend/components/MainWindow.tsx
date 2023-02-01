@@ -1,13 +1,13 @@
 import { Flex } from "@chakra-ui/react";
 import { ReactElement, useEffect, useState } from "react";
 
+import { useEventListener } from "../lib/hooks";
+import LOG from "../lib/logger";
+import AlertArea from "./AlertArea";
 import "./App.css";
-import AlertArea from "./components/AlertArea";
-import ErrorBoundary from "./components/ErrorBoundary";
-import SplitGrid from "./components/SplitGrid";
-import Toolbar from "./components/Toolbar";
-import { useEventListener } from "./hooks";
-import LOG from "./lib/logger";
+import ErrorBoundary from "./ErrorBoundary";
+import SplitGrid from "./SplitGrid";
+import Toolbar from "./Toolbar";
 
 const MainWindow = (): ReactElement => {
   const [windowDimensions, setWindowDimensions] = useState({

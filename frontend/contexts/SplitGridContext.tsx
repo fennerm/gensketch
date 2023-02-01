@@ -8,7 +8,6 @@ import {
   ReferenceSequenceData,
   SplitData,
 } from "../bindings";
-import { useBackendListener } from "../hooks";
 import {
   getAlignments,
   getDefaultReference,
@@ -16,6 +15,7 @@ import {
   listenForSplitAdded,
   listenForTrackAdded,
 } from "../lib/backend";
+import { useBackendListener } from "../lib/hooks";
 import LOG from "../lib/logger";
 import { RefSeqContext } from "./RefSeqContext";
 

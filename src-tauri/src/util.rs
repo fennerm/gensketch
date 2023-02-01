@@ -4,7 +4,7 @@ pub fn same_enum_variant<T>(a: &T, b: &T) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::same_enum_variant;
+    use super::*;
 
     #[test]
     fn test_same_enum_variant_false_case() {

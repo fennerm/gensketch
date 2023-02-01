@@ -6,24 +6,40 @@ use crate::bio_util::sequence::SequenceView;
 use crate::util::same_enum_variant;
 
 /// A sequence difference between an aligned read and the reference.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SequenceDiff {
     /// A single base substitution.
     // Cigar=M or X. M in cigar string can mean either a match or a mismatch.
-    Mismatch { interval: GenomicInterval, sequence: String },
+    Mismatch {
+        interval: GenomicInterval,
+        sequence: String,
+    },
 
     /// An insertion of one or more bases which are not present in the reference.
     // Cigar=I
-    Ins { interval: GenomicInterval, sequence: String },
+    Ins {
+        interval: GenomicInterval,
+        sequence: String,
+    },
 
     /// A deletion of one or more bases which are present in the reference.
     // Cigar=D
-    Del { interval: GenomicInterval },
+    Del {
+        interval: GenomicInterval,
+    },
 
     /// Bases which have been softclipped (generally at the end of the read).
     // Cigar=S
-    SoftClip { interval: GenomicInterval, sequence: String },
+    SoftClip {
+        interval: GenomicInterval,
+        sequence: String,
+    },
+
+    // Reference bases which are skipped (e.g introns in RNAseq).
+    RefSkip {
+        interval: GenomicInterval,
+    },
 }
 
 // This code is mostly stolen from rust-htslib's iterator of the same name with a few updates for
@@ -103,11 +119,25 @@ impl Iterator for IterAlignedPairsCigar {
                         Some(self.genome_pos as u64 - 1),
                     ));
                 }
-                Cigar::Ins(len) | Cigar::SoftClip(len) => {
+                Cigar::Ins(len) => {
                     self.read_pos += 1;
                     self.remaining_ins_bp = len - 1;
                     self.cigar_index += 1;
                     return Some((entry, Some(self.read_pos as usize - 1), None));
+                }
+                Cigar::SoftClip(len) => {
+                    // Technically per the SAM spec a softclipped base shouldn't increment the
+                    // genome position. But for our purposes its useful to increment so that
+                    // we know where to render softclips on reads.
+                    self.genome_pos += 1;
+                    self.read_pos += 1;
+                    self.remaining_ins_bp = len - 1;
+                    self.cigar_index += 1;
+                    return Some((
+                        entry,
+                        Some(self.read_pos as usize - 1),
+                        Some(self.genome_pos as u64 - 1),
+                    ));
                 }
                 Cigar::Del(len) | Cigar::RefSkip(len) => {
                     self.genome_pos += 1;
@@ -154,7 +184,7 @@ impl<'a> DiffAlignments<'a> {
     pub fn new(record: &'a Record, refseq: &'a SequenceView) -> Self {
         DiffAlignments {
             refseq,
-            current_diff_ref_start: 0,
+            current_diff_ref_start: record.pos() as u64,
             record_sequence: record.seq(),
             aligned_pair_index: 0,
             aligned_pairs: iter_aligned_pairs_cigar(record).collect(),
@@ -170,14 +200,15 @@ impl<'a> DiffAlignments<'a> {
         let mut sequence = Vec::new();
         let mut current_ref_pos = self.current_diff_ref_start;
         loop {
-            if !same_enum_variant(&aligned_pair.0, &initial_aligned_pair.0) {
-                break;
-            }
             match aligned_pair {
-                (Cigar::Ins(_) | Cigar::SoftClip(_), Some(read_pos), None) => {
+                (Cigar::Ins(_), Some(read_pos), None) => {
                     sequence.push(self.record_sequence[read_pos]);
                 }
-                (Cigar::Del(_), None, Some(ref_pos)) => {
+                (Cigar::Del(_) | Cigar::RefSkip(_), _, Some(ref_pos)) => {
+                    current_ref_pos = ref_pos;
+                }
+                (Cigar::SoftClip(_), Some(read_pos), Some(ref_pos)) => {
+                    sequence.push(self.record_sequence[read_pos]);
                     current_ref_pos = ref_pos;
                 }
                 _ => break,
@@ -186,18 +217,30 @@ impl<'a> DiffAlignments<'a> {
             if self.aligned_pair_index + 1 >= self.aligned_pairs.len() {
                 break;
             }
+            aligned_pair = self.aligned_pairs[self.aligned_pair_index + 1];
+
+            if !same_enum_variant(&aligned_pair.0, &initial_aligned_pair.0) {
+                break;
+            }
+
             self.aligned_pair_index += 1;
-            aligned_pair = self.aligned_pairs[self.aligned_pair_index];
         }
-        let interval = GenomicInterval {
-            start: self.current_diff_ref_start as u64,
-            end: current_ref_pos + 1 as u64,
-        };
         let sequence = String::from_utf8_lossy(&sequence).into();
         match initial_aligned_pair {
-            (Cigar::Ins(_), _, _) => SequenceDiff::Ins { interval, sequence },
-            (Cigar::SoftClip(_), _, _) => SequenceDiff::SoftClip { interval, sequence },
-            (Cigar::Del(_), _, _) => SequenceDiff::Del { interval },
+            (Cigar::Ins(_), _, _) => SequenceDiff::Ins {
+                interval: (self.current_diff_ref_start, current_ref_pos).into(),
+                sequence,
+            },
+            (Cigar::SoftClip(_), _, _) => SequenceDiff::SoftClip {
+                interval: (self.current_diff_ref_start, current_ref_pos + 1).into(),
+                sequence,
+            },
+            (Cigar::Del(_), _, _) => SequenceDiff::Del {
+                interval: (self.current_diff_ref_start, current_ref_pos + 1).into(),
+            },
+            (Cigar::RefSkip(_), _, _) => SequenceDiff::RefSkip {
+                interval: (self.current_diff_ref_start, current_ref_pos + 1).into(),
+            },
             _ => {
                 panic!("extend_diff_group called with invalid input");
             }
@@ -239,7 +282,7 @@ impl<'a> Iterator for DiffAlignments<'a> {
                 self.current_diff_ref_start = ref_pos;
             }
             let maybe_diff = match aligned_pair {
-                (Cigar::Ins(_) | Cigar::SoftClip(_) | Cigar::Del(_), _, _) => {
+                (Cigar::Ins(_) | Cigar::SoftClip(_) | Cigar::Del(_) | Cigar::RefSkip(_), _, _) => {
                     Some(self.collapse_diff())
                 }
                 (Cigar::Match(_) | Cigar::Diff(_), Some(read_pos), Some(ref_pos)) => {
@@ -259,4 +302,122 @@ impl<'a> Iterator for DiffAlignments<'a> {
 /// Iterate across SequenceDiffs in a rust-htslib BAM/SAM Record.
 pub fn iter_sequence_diffs<'a>(record: &'a Record, refseq: &'a SequenceView) -> DiffAlignments<'a> {
     DiffAlignments::new(record, refseq)
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+    use rust_htslib::bam::record::CigarString;
+
+    use super::*;
+    use test_util_rs::htslib_records::RecordBuilder;
+
+    pub fn run_diff(cigar: &str, read_seq: &[u8], qual: &[u8]) -> Vec<SequenceDiff> {
+        let seqview = SequenceView::new("TTTAGCTAAA".as_bytes().to_vec(), 1000);
+        let record = RecordBuilder::new(
+            b"read",
+            read_seq,
+            Some(&CigarString::try_from(cigar).unwrap()),
+            qual,
+        )
+        .record;
+        iter_sequence_diffs(&record, &seqview).collect::<Vec<SequenceDiff>>()
+    }
+
+    #[test]
+    pub fn test_diff_with_no_diffs_and_m_cigar() {
+        let diffs = run_diff("4M", b"AGCT", b"BBBB");
+        assert_eq!(diffs, Vec::new());
+    }
+
+    #[test]
+    pub fn test_diff_with_no_diffs_and_eq_cigar() {
+        let diffs = run_diff("4=", b"AGCT", b"BBBB");
+        assert_eq!(diffs, Vec::new());
+    }
+
+    #[test]
+    pub fn test_diff_with_snv_and_m_cigar() {
+        let diffs = run_diff("4M", b"TGCT", b"BBBB");
+        assert_eq!(
+            diffs,
+            vec!(SequenceDiff::Mismatch {
+                interval: (1003, 1004).into(),
+                sequence: "T".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    pub fn test_diff_with_snv_and_x_cigar() {
+        let diffs = run_diff("1X3=", b"TGCT", b"BBBB");
+        assert_eq!(
+            diffs,
+            vec!(SequenceDiff::Mismatch {
+                interval: (1003, 1004).into(),
+                sequence: "T".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    pub fn test_diff_with_deletion() {
+        let diffs = run_diff("3M1D", b"AGC", b"BBB");
+        assert_eq!(diffs, vec!(SequenceDiff::Del { interval: (1006, 1007).into() }));
+    }
+
+    #[test]
+    pub fn test_diff_with_insertion() {
+        let diffs = run_diff("2M1I2M", b"AGTCT", b"BBBBB");
+        assert_eq!(
+            diffs,
+            vec!(SequenceDiff::Ins { interval: (1004, 1004).into(), sequence: "T".to_owned() })
+        );
+    }
+
+    #[test]
+    pub fn test_diff_with_softclip_at_start() {
+        let diffs = run_diff("1S3M", b"TGCT", b"BBBB");
+        assert_eq!(
+            diffs,
+            vec!(SequenceDiff::SoftClip {
+                interval: (1003, 1004).into(),
+                sequence: "T".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    pub fn test_diff_with_softclip_at_end() {
+        let diffs = run_diff("3M1S", b"AGCA", b"BBBB");
+        assert_eq!(
+            diffs,
+            vec!(SequenceDiff::SoftClip {
+                interval: (1006, 1007).into(),
+                sequence: "A".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    pub fn test_hardclips_dont_produce_diffs() {
+        let diffs = run_diff("3M1H", b"AGC", b"BBB");
+        assert_eq!(diffs, Vec::new());
+    }
+
+    #[test]
+    pub fn test_diff_with_refskip() {
+        let diffs = run_diff("2M1N1M", b"AGT", b"BBB");
+        assert_eq!(diffs, vec!(SequenceDiff::RefSkip { interval: (1005, 1006).into() }));
+    }
+
+    #[test]
+    pub fn test_complex_diff() {
+        let diffs = run_diff("2M3D1M4I1M", b"AGATTTTA", b"BBBBBBBB");
+        let expected_diffs = vec![
+            SequenceDiff::Del { interval: (1005, 1008).into() },
+            SequenceDiff::Ins { interval: (1008, 1008).into(), sequence: "TTTT".to_owned() },
+        ];
+        assert_eq!(diffs, expected_diffs);
+    }
 }

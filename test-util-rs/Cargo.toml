@@ -1,0 +1,29 @@
+[package]
+name = "test-util-rs"
+description = "Gensketch test utilities and fixtures"
+publish = false
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.69"
+authors = ["fennerm"]
+license = "AGPL-3.0"
+repository = "https://github.com/fennerm/gensketch"
+readme = "../README.md"
+# Re-enable workspace inheritance when https://github.com/tauri-apps/tauri/issues/6122 is patched
+# authors.workspace = true
+# license.workspace = true
+# edition.workspace = true
+# rust-version.workspace = true
+# version.workspace = true
+
+[dependencies]
+bio = "1.0"
+itertools = "0.10"
+parking_lot = {version = "0.12", features = ["serde"] }
+rust-htslib = "0.40"
+uuid = {version="0.8", features = ["serde", "v4"] }
+# bio = { workspace = true }
+# itertools = {workspace = true}
+# parking_lot = { workspace = true }
+# rust-htslib = { workspace = true}
+# uuid = { workspace = true }

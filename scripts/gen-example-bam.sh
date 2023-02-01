@@ -2,9 +2,10 @@
 # Dependencies:
 # * BBtools
 # * Samtools
-output_fastq="$HOME"/.local/share/gensketch/mtdna_random_reads.fq.gz
-output_bam="$HOME"/.local/share/gensketch/mtdna_random_reads.bam
-bbmap.sh ref="$HOME"/.local/share/gensketch/human_mtdna.fasta
+output_fastq="test_data/fake-genome.reads.fq.gz"
+output_bam="test_data/fake-genome.reads.bam"
+unmapped_bam="test_data/fake-genome.unmapped.bam"
+bbmap.sh ref="test_data/fake-genome.fa"
 randomreads.sh \
     reads=4500 \
     length=150 \
@@ -20,3 +21,7 @@ randomreads.sh \
     out="$output_fastq"
 bbmap.sh in="$output_fastq" out=stdout.bam | samtools sort -o "$output_bam"
 samtools index "$output_bam"
+samtools view -bhf 4 "$output_bam" | samtools sort -o "$unmapped_bam"
+samtools index "$unmapped_bam"
+rm "$output_fastq"
+rm -rf ref

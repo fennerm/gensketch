@@ -3,10 +3,10 @@ import * as PIXI from "pixi.js";
 import { ReactElement, useContext, useEffect, useRef } from "react";
 
 import { RefSeqContext } from "../contexts/RefSeqContext";
-import { useElementSize, usePixiApp, usePixiStage } from "../hooks";
 import { getNucTextStyle } from "../lib/drawing";
 import { NUC_COLORS } from "../lib/drawing";
 import { getLength } from "../lib/genomicCoordinates";
+import { useElementSize, usePixiApp, usePixiStage } from "../lib/hooks";
 import LOG from "../lib/logger";
 import { RenderQueue } from "../lib/pixi-utils";
 import { Size } from "../lib/types";

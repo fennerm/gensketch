@@ -2,12 +2,12 @@ import { Event } from "@tauri-apps/api/event";
 import { ReactElement, ReactNode, createContext, useState } from "react";
 
 import { FocusedRegionUpdated, GenomicRegion, SplitData } from "../bindings";
-import { useBackendListener } from "../hooks";
 import {
   getReferenceSequence,
   listenForFocusedRegionUpdated,
   listenForSplitAdded,
 } from "../lib/backend";
+import { useBackendListener } from "../lib/hooks";
 import LOG from "../lib/logger";
 
 interface RefSeqContextInterface {

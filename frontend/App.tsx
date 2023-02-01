@@ -1,7 +1,6 @@
 import { ReactElement } from "react";
 
-import "./App.css";
-import MainWindow from "./MainWindow";
+import MainWindow from "./components/MainWindow";
 import { AlertContextProvider } from "./contexts/AlertContext";
 import { RefSeqContextProvider } from "./contexts/RefSeqContext";
 import { SplitGridContextProvider } from "./contexts/SplitGridContext";

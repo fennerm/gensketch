@@ -1,6 +1,6 @@
 node_modules
 dist
-src-tauri/target
+target/
 dist-ssr
 *.local
 
@@ -14,7 +14,6 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Editor directories and files
-.vscode
 !.vscode/extensions.json
 .idea
 .DS_Store

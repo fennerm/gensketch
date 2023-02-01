@@ -1,8 +1,8 @@
 import { ReactElement, ReactNode, createContext, useState } from "react";
 
 import { AlertData, AlertStatusUpdateParams, AlertStatusValue } from "../bindings";
-import { useBackendListener } from "../hooks";
 import { listenForAlertStatusUpdated, listenForNewAlert } from "../lib/backend";
+import { useBackendListener } from "../lib/hooks";
 import LOG from "../lib/logger";
 
 export interface AlertStatus extends AlertData {

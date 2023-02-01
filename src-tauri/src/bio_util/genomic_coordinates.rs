@@ -73,7 +73,7 @@ impl fmt::Display for GenomicInterval {
 
 #[cfg(test)]
 mod tests {
-    use super::{GenomicInterval, GenomicRegion};
+    use super::*;
 
     #[test]
     fn test_genomic_region_string_formatting() {
