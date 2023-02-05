@@ -155,7 +155,7 @@ export class DrawPool {
     poolsize,
     stepSize,
   }: {
-    stage: PIXI.Container | Scrollbox;
+    stage: PIXI.Container;
     drawFn: () => PIXI.Container;
     poolsize?: number;
     stepSize?: number;
@@ -175,11 +175,7 @@ export class DrawPool {
   }
 
   addToStage = (object: PIXI.Container) => {
-    if (this.stage instanceof Scrollbox) {
-      this.stage.content.addChild(object);
-    } else {
-      this.stage.addChild(object);
-    }
+    this.stage.addChild(object);
   };
 
   expandPool = (newPoolsize: number): void => {
@@ -241,15 +237,9 @@ export interface ManagedDrawObject extends TaggedDrawObject {
 export class StageManager {
   drawConfig: DrawConfig;
   pools: Map<DrawClass, DrawPool>;
-  stage: PIXI.Container | Scrollbox;
+  stage: PIXI.Container;
 
-  constructor({
-    drawConfig,
-    stage,
-  }: {
-    drawConfig: DrawConfig;
-    stage: PIXI.Container | Scrollbox;
-  }) {
+  constructor({ drawConfig, stage }: { drawConfig: DrawConfig; stage: PIXI.Container }) {
     this.drawConfig = drawConfig;
     this.pools = new Map();
     this.stage = stage;
