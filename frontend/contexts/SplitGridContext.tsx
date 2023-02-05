@@ -1,4 +1,12 @@
-import { ReactElement, ReactNode, createContext, useContext, useEffect, useState } from "react";
+import {
+  ReactElement,
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AlignedPair,
@@ -17,7 +25,7 @@ import {
 } from "../lib/backend";
 import { useBackendListener } from "../lib/hooks";
 import LOG from "../lib/logger";
-import { RefSeqContext } from "./RefSeqContext";
+import { AlertApiContext } from "./AlertContext";
 
 export interface SplitState {
   id: string;
@@ -37,6 +45,10 @@ export type AlignmentsData = {
 
 export interface AlignmentsDataState {
   [trackId: string]: AlignmentsData;
+}
+
+interface FocusedRegionState {
+  [splitId: string]: GenomicRegion | null;
 }
 
 interface SplitContextInterface {
@@ -61,7 +73,7 @@ type AlignmentsResult = Promise<{
   splitId: string;
   trackId: string;
   alignments: AlignmentStack<AlignedPair>;
-}>;
+} | null>;
 
 export const SplitContext = createContext<SplitContextInterface>({ splits: [] });
 
@@ -87,22 +99,17 @@ export const SplitGridContextProvider = ({
   const [tracks, setTracks] = useState<TrackState[]>([]);
   const [reference, setReference] = useState<ReferenceSequenceData | null>(null);
   const [alignments, setAlignments] = useState<AlignmentsDataState>({});
-  const refSeqContext = useContext(RefSeqContext);
-
-  const getAllTrackIds = (): string[] => {
-    return tracks.map((track) => track.id);
-  };
-
-  const getAllSplitIds = (): string[] => {
-    return splits.map((split) => split.id);
-  };
+  const alertApi = useContext(AlertApiContext);
+  const allTrackIds = useRef<string[]>([]);
+  const allSplitIds = useRef<string[]>([]);
+  const focusedRegions = useRef<FocusedRegionState>({});
 
   const addSplit = (newSplit: SplitData): void => {
-    setSplits((splits) => {
+    setSplits((state) => {
       LOG.debug(`Handling spit-added event: ${JSON.stringify(newSplit)}`);
-      const numSplits = splits.length;
+      const numSplits = state.length;
       const newSplitWidth = 100 / (numSplits + 1);
-      splits.map((split) => {
+      state.map((split) => {
         split.widthPct = split.widthPct - newSplitWidth / numSplits;
       });
       const newSplitState: SplitState = {
@@ -111,12 +118,14 @@ export const SplitGridContextProvider = ({
         focusedRegion: newSplit.focusedRegion,
       };
       LOG.debug(`Updating UI with new split: ${JSON.stringify(newSplitState)}`);
-      splits.push(newSplitState);
-      return [...splits];
+      state.push(newSplitState);
+      allSplitIds.current.push(newSplitState.id);
+      focusedRegions.current[newSplitState.id] = newSplitState.focusedRegion;
+      return [...state];
     });
     updateAlignments({
       splitIds: [newSplit.id],
-      trackIds: getAllTrackIds(),
+      trackIds: allTrackIds.current,
       genomicRegion: newSplit.focusedRegion,
     });
   };
@@ -130,38 +139,44 @@ export const SplitGridContextProvider = ({
     splitId: string;
     trackId: string;
   }): AlignmentsResult => {
-    return getAlignments({ genomicRegion, splitId, trackId }).then((alignments) => {
-      LOG.debug(
-        `Fetched ${alignments.rows.length} rows of alignments for track ${trackId} - split ${splitId}`
-      );
-      return {
-        splitId,
-        trackId,
-        alignments,
-      };
-    });
+    return getAlignments({ genomicRegion, splitId, trackId })
+      .then((alignments) => {
+        LOG.debug(
+          `Fetched ${alignments.rows.length} rows of alignments for track ${trackId} - split ${splitId}`
+        );
+        return {
+          splitId,
+          trackId,
+          alignments,
+        };
+      })
+      .catch((error) => {
+        alertApi.addAlert({ message: error, status: "error" });
+        LOG.error(error);
+        return null;
+      });
   };
 
   const addTrack = (newTrack: AlignmentTrackData): void => {
     LOG.debug(`Handling track-added event: ${JSON.stringify(newTrack)}`);
-    setTracks((tracks) => {
+    setTracks((state) => {
       LOG.debug("setTracks called...");
-      const numTracks = tracks.length;
+      const numTracks = state.length;
       const newTrackHeight = 100 / (numTracks + 1);
-      tracks.map((track) => {
+      state.map((track) => {
         track.heightPct = track.heightPct - newTrackHeight / numTracks;
       });
       const newTrackState: TrackState = {
         ...newTrack,
         heightPct: newTrackHeight,
       };
-      tracks.push(newTrackState);
+      state.push(newTrackState);
+      allTrackIds.current.push(newTrackState.id);
       LOG.debug(`Updating UI with new track: ${JSON.stringify(newTrackState)}`);
-      return [...tracks];
+      return [...state];
     });
-
     updateAlignments({
-      splitIds: getAllSplitIds(),
+      splitIds: allSplitIds.current,
       trackIds: [newTrack.id],
       useExistingRegion: true,
     });
@@ -181,8 +196,8 @@ export const SplitGridContextProvider = ({
     const promises = trackIds.flatMap((trackId) => {
       return splitIds.map((splitId) => {
         if (useExistingRegion) {
-          if ("splitId" in refSeqContext) {
-            genomicRegion = refSeqContext[splitId].focusedRegion;
+          if (focusedRegions.current[splitId] !== undefined) {
+            genomicRegion = focusedRegions.current[splitId];
           } else {
             genomicRegion = null;
           }
@@ -197,7 +212,11 @@ export const SplitGridContextProvider = ({
 
     Promise.all(promises).then((alignmentsResults) => {
       setAlignments((trackDataState) => {
-        alignmentsResults.forEach(({ splitId, trackId, alignments }) => {
+        alignmentsResults.forEach((result) => {
+          if (result === null) {
+            return;
+          }
+          const { splitId, trackId, alignments } = result;
           if (!(trackId in trackDataState)) {
             trackDataState[trackId] = {};
           }
@@ -211,25 +230,31 @@ export const SplitGridContextProvider = ({
   useBackendListener(listenForSplitAdded, (event) => addSplit(event.payload));
   useBackendListener(listenForTrackAdded, (event) => addTrack(event.payload));
   useBackendListener(listenForFocusedRegionUpdated, (event) => {
+    focusedRegions.current[event.payload.splitId] = event.payload.genomicRegion;
     updateAlignments({
       splitIds: [event.payload.splitId],
-      trackIds: getAllTrackIds(),
+      trackIds: allTrackIds.current,
       genomicRegion: event.payload.genomicRegion,
     });
   });
 
   useEffect(() => {
-    getDefaultReference().then((result) => {
-      setReference(result);
-    });
+    getDefaultReference()
+      .then((result) => {
+        setReference(result);
+      })
+      .catch((error) => {
+        alertApi.addAlert({ message: error, status: "error" });
+        LOG.error(error);
+      });
   }, []);
 
   const setSplitWidthsPct = (widths: readonly number[]): void => {
-    setSplits((splits) => {
-      splits.map((split, index) => {
+    setSplits((state) => {
+      state.map((split, index) => {
         split.widthPct = widths[index];
       });
-      return [...splits];
+      return [...state];
     });
   };
 
@@ -238,11 +263,11 @@ export const SplitGridContextProvider = ({
   }
 
   const setTrackHeightsPct = (heights: readonly number[]): void => {
-    setTracks((tracks) => {
-      tracks.map((track, index) => {
+    setTracks((state) => {
+      state.map((track, index) => {
         track.heightPct = heights[index];
       });
-      return [...tracks];
+      return [...state];
     });
   };
 

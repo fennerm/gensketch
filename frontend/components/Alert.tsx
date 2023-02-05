@@ -3,8 +3,7 @@ import { IconButton } from "@chakra-ui/react";
 import { Flex } from "@chakra-ui/react";
 import { ReactElement, useContext } from "react";
 
-import { AlertData } from "../bindings";
-import { AlertContext } from "../contexts/AlertContext";
+import { AlertApiContext, AlertContext, AlertStatus } from "../contexts/AlertContext";
 
 /**
  * An alert to be displayed to the user in the AlertArea
@@ -15,10 +14,11 @@ const Alert = ({
   alertData,
   display,
 }: {
-  readonly alertData: AlertData;
+  readonly alertData: AlertStatus;
   readonly display: boolean;
 }): ReactElement => {
   const context = useContext(AlertContext);
+  const api = useContext(AlertApiContext);
 
   return (
     <Flex className="alert" width="full" flexDirection="row">
@@ -28,7 +28,7 @@ const Alert = ({
           <IconButton
             aria-label="Close Alert"
             icon={<CloseIcon />}
-            onClick={() => context.deactivateAlert(alertData.id)}
+            onClick={() => api.deactivateAlert(alertData.id)}
           />
         </Flex>
       )}

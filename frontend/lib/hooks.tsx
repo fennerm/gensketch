@@ -1,6 +1,6 @@
 import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 
-import { PixiApplication, PixiConstructorParams } from "./pixi-utils";
+import { PixiApplication, PixiConstructorParams } from "./drawing";
 import { EventCallback, EventListener } from "./types";
 
 export const useElementSize = <T extends HTMLElement>() => {

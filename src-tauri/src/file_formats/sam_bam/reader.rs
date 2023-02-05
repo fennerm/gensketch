@@ -79,7 +79,7 @@ mod tests {
     #[test]
     pub fn test_read_simple_bam() {
         let region = GenomicRegion::new("mt", 1000, 1500);
-        check_read_bam("fake-genome.reads.bam", "fake-genome.fa", &region, 265)
+        check_read_bam("fake-genome.reads.bam", "fake-genome.fa", &region, 575)
     }
 
     #[test]

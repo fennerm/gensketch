@@ -4,7 +4,6 @@ import { ReactElement, useEffect, useState } from "react";
 import { useEventListener } from "../lib/hooks";
 import LOG from "../lib/logger";
 import AlertArea from "./AlertArea";
-import "./App.css";
 import ErrorBoundary from "./ErrorBoundary";
 import SplitGrid from "./SplitGrid";
 import Toolbar from "./Toolbar";

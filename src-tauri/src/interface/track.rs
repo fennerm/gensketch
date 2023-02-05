@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -79,8 +80,9 @@ impl TrackList {
     }
 
     pub fn add_alignment_track<P: Into<PathBuf>>(&mut self, path: P) -> Result<&Track> {
-        // TODO: Properly define track name
-        let track = AlignmentTrack::new(path, "track")?;
+        let pathbuf: PathBuf = path.into();
+        let name = &pathbuf.file_name().unwrap_or(OsStr::new("unknown")).to_string_lossy();
+        let track = AlignmentTrack::new(&pathbuf, name.as_ref())?;
         self.tracks.push(Track::Alignment(track));
         Ok(self.tracks.last().unwrap())
     }

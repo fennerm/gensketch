@@ -14,6 +14,7 @@ import {
   GenomicRegion,
   ReferenceSequenceData,
   SplitData,
+  UserConfig,
 } from "../../bindings";
 import { EventCallback, EventListener, UnlistenFn } from "../types";
 
@@ -112,6 +113,10 @@ export const updateFocusedRegion = ({
   }) as Promise<SplitData>;
 };
 
+export const getUserConfig = (): Promise<UserConfig> => {
+  return invoke("get_user_config", {}) as Promise<UserConfig>;
+};
+
 export const listenForSplitAdded: EventListener<SplitData> = (callback) => {
   const wrappedCallback = (event: Event<SplitData>): void => {
     convertCoordToBigInt(event.payload.focusedRegion);
@@ -138,6 +143,10 @@ export const listenForNewAlert: EventListener<AlertData> = (callback) => {
 
 export const listenForAlertStatusUpdated: EventListener<AlertStatusUpdateParams> = (callback) => {
   return listen("new-status-updated", callback);
+};
+
+export const listenForUserConfigUpdated: EventListener<UserConfig> = (callback) => {
+  return listen("user-config-updated", callback);
 };
 
 export const openFileDialog = async (): Promise<string[] | null> => {

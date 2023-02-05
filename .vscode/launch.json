@@ -16,7 +16,7 @@
         ]
       },
       "env": { "RUST_BACKTRACE": "1" },
-      "preLaunchTask": "ui:dev"
+      "preLaunchTask": "ui:dev",
     },
     {
       "type": "lldb",
@@ -26,7 +26,8 @@
         "args": ["build", "--release", "--manifest-path=./src-tauri/Cargo.toml"]
       },
       "env": { "RUST_BACKTRACE": "1" },
-      "preLaunchTask": "ui:build"
+      "preLaunchTask": "ui:build",
+      "postDebugTask": "${command:workbench.action.tasks.terminate}"
     }
   ]
 }

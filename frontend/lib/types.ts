@@ -1,8 +1,13 @@
 export type Size = string | number;
 
-export interface Dimensions {
+export interface CSSDimensions {
   width: Size;
   height: Size;
+}
+
+export interface Dimensions {
+  width: number;
+  height: number;
 }
 
 export interface Event<T> {
@@ -22,7 +27,31 @@ export type UnlistenFn = () => void;
 
 export type EventListener<T> = (callback: EventCallback<T>) => Promise<UnlistenFn>;
 
-export interface Point {
+export interface Position {
   x: number;
   y: number;
 }
+
+export function assertIsDefined<T>(value: T): asserts value is NonNullable<T> {
+  if (value === undefined || value === null) {
+    throw new Error(`${value} is not defined`);
+  }
+}
+
+export type PrimaryIUPACNucleotide = "A" | "G" | "C" | "T";
+
+export type SecondaryIUPACNucleotide =
+  | "N"
+  | "R"
+  | "Y"
+  | "K"
+  | "M"
+  | "S"
+  | "W"
+  | "B"
+  | "D"
+  | "H"
+  | "V"
+  | "GAP";
+
+export type IUPACNucleotide = PrimaryIUPACNucleotide | SecondaryIUPACNucleotide;

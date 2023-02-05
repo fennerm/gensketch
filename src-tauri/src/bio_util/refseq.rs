@@ -28,12 +28,19 @@ pub fn get_default_reference() -> Result<Option<ReferenceSequence>> {
     // TODO cache path from previous session
     // TODO Try redownload if missing?
 
-    let refseq = local_data_dir().as_mut().map(|path| {
-        path.push("gensketch");
-        path.push("human_mtdna.fasta");
-        ReferenceSequence::new("HG19".to_owned(), path.to_owned())
-    });
-    Ok(refseq)
+    // let refseq = local_data_dir().as_mut().map(|path| {
+    //     path.push("gensketch");
+    //     path.push("human_mtdna.fasta");
+    //     ReferenceSequence::new("HG19".to_owned(), path.to_owned())
+    // });
+    let mut path = std::env::current_exe()?;
+    for _ in 0..3 {
+        path.pop();
+    }
+    path.push("test_data");
+    path.push("fake-genome.fa");
+    let refseq = ReferenceSequence::new("HG19".to_owned(), path.to_owned());
+    Ok(Some(refseq))
 }
 
 #[cfg(test)]
@@ -45,6 +52,6 @@ mod tests {
         let result = get_default_reference().unwrap().unwrap();
         assert_eq!(result.name, "HG19");
         let path_end: Vec<_> = result.path.into_iter().rev().take(2).collect();
-        assert_eq!(path_end, vec!("human_mtdna.fasta", "gensketch"));
+        assert_eq!(path_end, vec!("fake-genome.fa", "test_data"));
     }
 }

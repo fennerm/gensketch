@@ -31,6 +31,7 @@ impl FastaReader {
         })?;
         let mut sequence: Vec<u8> = Vec::new();
         self.reader.read(&mut sequence)?;
+        sequence = sequence.into_iter().filter(|c| *c != b'\n').collect();
         let view = SequenceView::new(sequence, region.start);
         Ok(view)
     }

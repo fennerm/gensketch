@@ -1,5 +1,5 @@
 import { Event } from "@tauri-apps/api/event";
-import { ReactElement, ReactNode, createContext, useState } from "react";
+import { ReactElement, ReactNode, createContext, useContext, useState } from "react";
 
 import { FocusedRegionUpdated, GenomicRegion, SplitData } from "../bindings";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../lib/backend";
 import { useBackendListener } from "../lib/hooks";
 import LOG from "../lib/logger";
+import { AlertApiContext } from "./AlertContext";
 
 interface RefSeqContextInterface {
   [splitId: string]: {
@@ -25,6 +26,7 @@ export const RefSeqContextProvider = ({
   readonly children?: ReactNode;
 }): ReactElement => {
   const [splitData, setSplitData] = useState<RefSeqContextInterface>({});
+  const alertApi = useContext(AlertApiContext);
 
   const getReferenceSequenceSafe = (genomicRegion: GenomicRegion | null): Promise<string> => {
     if (genomicRegion !== null) {
@@ -65,6 +67,7 @@ export const RefSeqContextProvider = ({
         });
       })
       .catch((error) => {
+        alertApi.addAlert({ message: error, status: "error" });
         LOG.error(error);
       });
   };

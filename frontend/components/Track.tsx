@@ -2,11 +2,15 @@ import { Box, Flex, HStack } from "@chakra-ui/react";
 import { ReactElement, RefObject, useContext } from "react";
 
 import { SplitContext, TrackState } from "../contexts/SplitGridContext";
+import { UserConfigContext } from "../contexts/UserConfigContext";
 import { DIVIDER_PX } from "../lib/constants";
 import { Size } from "../lib/types";
+import { hexToString } from "../lib/util";
 import AlignmentsView from "./AlignmentsView";
 import ErrorBoundary from "./ErrorBoundary";
 import { GridDivider } from "./GridDivider";
+
+const TRACK_LABEL_HEIGHT = "34px";
 
 const Track = <T extends HTMLElement>({
   height,
@@ -20,13 +24,25 @@ const Track = <T extends HTMLElement>({
   readonly splitGridRef: RefObject<T>;
 }): ReactElement => {
   const splitContext = useContext(SplitContext);
+  const userConfigContext = useContext(UserConfigContext);
 
   return (
     <Flex className="track" height={height} width={width} flexDirection="column">
-      <Box className="track-label" backgroundColor="grey" width="full">
+      <Box
+        className="track-label"
+        height={`${TRACK_LABEL_HEIGHT}`}
+        width="full"
+        fontSize="12px"
+        color={hexToString(userConfigContext.styles.colors.trackLabelText)}
+        backgroundColor={hexToString(userConfigContext.styles.colors.trackLabelBackground)}
+      >
         {trackData.name}
       </Box>
-      <Flex className="split-container" flexDirection="row" height="full" width="full">
+      <Flex
+        className="split-container"
+        flexDirection="row"
+        style={{ height: `calc(100% - ${TRACK_LABEL_HEIGHT})` }}
+      >
         {splitContext.splits.map((split, splitIndex: number) => {
           return (
             <ErrorBoundary key={splitIndex}>

@@ -10,6 +10,7 @@ use crate::file_formats::sam_bam::stack::AlignmentStack;
 use crate::interface::backend::Backend;
 use crate::interface::events::{emit_event, FocusedRegionUpdated};
 use crate::interface::track::Track;
+use crate::interface::user_config::{read_user_config, UserConfig};
 
 #[tauri::command(async)]
 pub fn add_alignment_track(
@@ -110,4 +111,9 @@ pub fn update_focused_region(
     split.focused_region = genomic_region;
     let result_json = serde_json::value::to_value(event)?;
     Ok(result_json)
+}
+
+#[tauri::command(async)]
+pub fn get_user_config() -> CommandResult<UserConfig> {
+    Ok(read_user_config()?)
 }

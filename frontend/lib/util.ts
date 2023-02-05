@@ -1,3 +1,5 @@
+import { AssertionError } from "assert";
+
 export const sum = (numbers: number[]): number => {
   return numbers.reduce((partialSum, x) => partialSum + x, 0);
 };
@@ -22,7 +24,7 @@ export const randomGenomicSequence = (length: number): string => {
   return randomSequence({ length, alphabet: "ACGTN" });
 };
 
-export const deepCopy = <T,>(source: T): T => {
+export const deepCopy = <T>(source: T): T => {
   return Array.isArray(source)
     ? source.map((item) => deepCopy(item))
     : source instanceof Date
@@ -43,4 +45,12 @@ export const monkeyPatchBigInt = () => {
       return () => String(this);
     },
   });
+};
+
+export const range = (start: number, end: number): number[] => {
+  return Array.from({ length: end - start + 1 }, (_, i) => i);
+};
+
+export const hexToString = (hex: number): string => {
+  return `#${hex.toString(16)}`;
 };

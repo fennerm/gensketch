@@ -4,15 +4,18 @@ import MainWindow from "./components/MainWindow";
 import { AlertContextProvider } from "./contexts/AlertContext";
 import { RefSeqContextProvider } from "./contexts/RefSeqContext";
 import { SplitGridContextProvider } from "./contexts/SplitGridContext";
+import { UserConfigContextProvider } from "./contexts/UserConfigContext";
 
 const App = (): ReactElement => {
   return (
     <AlertContextProvider>
-      <RefSeqContextProvider>
-        <SplitGridContextProvider>
-          <MainWindow />
-        </SplitGridContextProvider>
-      </RefSeqContextProvider>
+      <UserConfigContextProvider>
+        <RefSeqContextProvider>
+          <SplitGridContextProvider>
+            <MainWindow />
+          </SplitGridContextProvider>
+        </RefSeqContextProvider>
+      </UserConfigContextProvider>
     </AlertContextProvider>
   );
 };

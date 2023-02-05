@@ -12,7 +12,7 @@ use tauri_plugin_log::{LogTarget, LoggerBuilder};
 use crate::interface::backend::Backend;
 use crate::interface::commands::{
     add_alignment_track, add_split, default_reference, get_alignments, get_reference_sequence,
-    update_focused_region,
+    get_user_config, update_focused_region,
 };
 
 fn main() -> Result<()> {
@@ -29,6 +29,7 @@ fn main() -> Result<()> {
             default_reference,
             get_alignments,
             get_reference_sequence,
+            get_user_config,
             update_focused_region
         ])
         .run(tauri::generate_context!())

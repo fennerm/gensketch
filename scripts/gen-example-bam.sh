@@ -7,7 +7,7 @@ output_bam="test_data/fake-genome.reads.bam"
 unmapped_bam="test_data/fake-genome.unmapped.bam"
 bbmap.sh ref="test_data/fake-genome.fa"
 randomreads.sh \
-    reads=4500 \
+    reads=10000 \
     length=150 \
     mininsert=350 \
     paired \

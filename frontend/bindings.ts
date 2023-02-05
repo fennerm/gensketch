@@ -2,6 +2,7 @@
 //
 // These are manually updated for the time being. I experimented with auto-generating them with
 // ts-rs but it became a huge mess due to problems with bigint serialization.
+import { IUPACNucleotide } from "./lib/types";
 
 export type AlignedPair =
   | ({ type: "pairedReadsKind" } & PairedReads)
@@ -87,13 +88,30 @@ export interface UnpairedRead {
 export type AlertStatusValue = "error" | "inProgress" | "complete";
 
 export interface AlertData {
-  id: string;
   status: AlertStatusValue;
   message: string;
-  detailedMessage: string | null;
 }
 
 export interface AlertStatusUpdateParams {
-  alertID: string;
+  alertId: string;
   newStatus: AlertStatusValue;
+}
+
+export type NucleotideColorConfig = {
+  [nuc in IUPACNucleotide]: number;
+};
+
+export interface ColorConfig {
+  alignment: number;
+  trackLabelBackground: number;
+  trackLabelText: number;
+  nucleotideColors: NucleotideColorConfig;
+}
+
+export interface StyleConfig {
+  colors: ColorConfig;
+}
+
+export interface UserConfig {
+  styles: StyleConfig;
 }
