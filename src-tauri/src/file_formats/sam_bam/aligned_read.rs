@@ -5,20 +5,21 @@ use anyhow::{Context, Result};
 use rust_htslib::bam::record::Record;
 use serde::Serialize;
 
-use crate::bio_util::alignment::Alignment;
+use crate::alignments::alignment::Alignment;
 use crate::bio_util::genomic_coordinates::{GenomicInterval, GenomicRegion};
 use crate::bio_util::sequence::SequenceView;
 use crate::file_formats::sam_bam::diff::{iter_sequence_diffs, SequenceDiff};
 use crate::file_formats::sam_bam::tid::TidMap;
 use crate::impl_alignment;
 
-fn get_mate_pos(record: &Record, tid_map: &TidMap) -> Option<GenomicRegion> {
+/// Get the genomic region of a read's mate from a rust htslib bam record.
+fn get_mate_region(record: &Record, tid_map: &TidMap) -> Result<Option<GenomicRegion>> {
     let raw_mate_pos = record.mpos();
     let raw_mate_tid = record.mtid();
     if raw_mate_pos < 0 || raw_mate_tid < 0 {
         // SAM spec suggests unmapped reads have 1-indexed pos=0, so I believe they should have
         // pos=-1 when converted to 0 indexed.
-        return None;
+        return Ok(None);
     }
 
     let mate_start = record.mpos() as u64;
@@ -26,13 +27,15 @@ fn get_mate_pos(record: &Record, tid_map: &TidMap) -> Option<GenomicRegion> {
     tid_map
         .get_seq_name(mate_tid)
         .map(|seq_name| GenomicRegion::new(seq_name, mate_start, mate_start + 1))
+        .transpose()
 }
 
 /// A single aligned read from a SAM/BAM file.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlignedRead {
-    pub read_name: String,
+    pub id: String,
+    pub qname: String,
     pub region: GenomicRegion,
 
     /// Start position of paired read (None if read is unpaired)
@@ -52,22 +55,40 @@ impl AlignedRead {
     ///
     /// * `refseq` - A reference sequence view which spans the entirety of the read.
     pub fn from_record(record: &Record, refseq: &SequenceView, tid_map: &TidMap) -> Result<Self> {
-        let read_name: String = String::from_utf8_lossy(record.qname()).into();
+        let qname: String = String::from_utf8_lossy(record.qname()).into();
         let seq_name = tid_map.get_seq_name(record.tid()).with_context(|| {
-            format!("Attempted to construct AlignedRead from unmapped read (Read {})", read_name)
+            format!("Attempted to construct AlignedRead from unmapped read (Read {})", qname)
         })?;
         let cigar = record.cigar();
-        let start = u64::try_from(record.pos()).with_context(|| {
-            format!("Read {} has invalid position ({})", read_name, record.pos())
-        })?;
+        let start = u64::try_from(record.pos())
+            .with_context(|| format!("Read {} has invalid position ({})", qname, record.pos()))?;
         let end = u64::try_from(cigar.end_pos()).with_context(|| {
-            format!("Read {} has invalid end position ({})", read_name, cigar.end_pos())
+            format!("Read {} has invalid end position ({})", qname, cigar.end_pos())
         })?;
-        let genomic_region = GenomicRegion { seq_name: seq_name.to_owned(), start, end };
-        let diffs = iter_sequence_diffs(record, refseq).collect();
+        let genomic_region = GenomicRegion::new(seq_name, start, end)?;
+        let diffs = iter_sequence_diffs(record, refseq).collect::<Result<Vec<SequenceDiff>>>()?;
         let is_reverse = record.is_reverse();
-        let mate_pos = get_mate_pos(record, tid_map);
-        Ok(AlignedRead { read_name, region: genomic_region, diffs, is_reverse, mate_pos })
+        let mate_pos = get_mate_region(record, tid_map)?;
+        let mut id = qname.clone();
+        if record.is_first_in_template() {
+            id.push_str("/1")
+        } else {
+            id.push_str("/2")
+        }
+        Ok(AlignedRead { id, qname, region: genomic_region, diffs, is_reverse, mate_pos })
+    }
+}
+
+impl Alignment for AlignedRead {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn start(&self) -> u64 {
+        self.region.start()
+    }
+
+    fn end(&self) -> u64 {
+        self.region.end()
     }
 }
 
@@ -75,30 +96,31 @@ impl AlignedRead {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PairedReads {
-    read1: AlignedRead,
+    pub id: String,
+    pub read1: AlignedRead,
     /// read2 is None when the other read in the pair is outside of the current window
-    read2: Option<AlignedRead>,
-    interval: GenomicInterval,
+    pub read2: Option<AlignedRead>,
+    pub interval: GenomicInterval,
 }
 
 impl PairedReads {
-    pub fn new(read1: AlignedRead, read2: Option<AlignedRead>) -> Self {
+    pub fn new(read1: AlignedRead, read2: Option<AlignedRead>) -> Result<Self> {
         let interval: GenomicInterval = match &read2 {
             Some(inner_read2) => {
-                let start = cmp::min(read1.region.start, inner_read2.region.start);
-                let end = cmp::max(read1.region.end, inner_read2.region.end);
-                (start, end).into()
+                let start = cmp::min(read1.region.start(), inner_read2.region.start());
+                let end = cmp::max(read1.region.end(), inner_read2.region.end());
+                (start, end).try_into()?
             }
             None => {
                 // mate_pos should always be defined because otherwise we would have used
                 // UnpairedRead instead
                 let mate_pos = read1.mate_pos.as_ref().unwrap();
-                let start = cmp::min(read1.region.start, mate_pos.start);
-                let end = cmp::max(read1.region.end, mate_pos.end);
-                (start, end).into()
+                let start = cmp::min(read1.region.start(), mate_pos.start());
+                let end = cmp::max(read1.region.end(), mate_pos.end());
+                (start, end).try_into()?
             }
         };
-        Self { read1, read2, interval }
+        Ok(Self { id: read1.qname.clone(), read1, read2, interval })
     }
 }
 
@@ -109,14 +131,15 @@ impl PairedReads {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnpairedRead {
-    read: AlignedRead,
-    interval: GenomicInterval,
+    pub id: String,
+    pub read: AlignedRead,
+    pub interval: GenomicInterval,
 }
 
 impl UnpairedRead {
     pub fn new(read: AlignedRead) -> Self {
         let interval = read.region.clone().into();
-        Self { read, interval }
+        Self { id: read.qname.clone(), read, interval }
     }
 }
 
@@ -124,14 +147,15 @@ impl UnpairedRead {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscordantRead {
-    read: AlignedRead,
-    interval: GenomicInterval,
+    pub id: String,
+    pub read: AlignedRead,
+    pub interval: GenomicInterval,
 }
 
 impl DiscordantRead {
     pub fn new(read: AlignedRead) -> Self {
         let interval = read.region.clone().into();
-        Self { read, interval }
+        Self { id: read.qname.clone(), read, interval }
     }
 }
 
@@ -144,12 +168,30 @@ pub enum AlignedPair {
 }
 
 impl Alignment for AlignedPair {
-    fn interval(&self) -> &GenomicInterval {
+    fn id(&self) -> &str {
+        use AlignedPair::*;
+        match self {
+            PairedReadsKind(PairedReads { id, .. })
+            | UnpairedReadKind(UnpairedRead { id, .. })
+            | DiscordantReadKind(DiscordantRead { id, .. }) => id,
+        }
+    }
+
+    fn start(&self) -> u64 {
         use AlignedPair::*;
         match self {
             PairedReadsKind(PairedReads { interval, .. })
             | UnpairedReadKind(UnpairedRead { interval, .. })
-            | DiscordantReadKind(DiscordantRead { interval, .. }) => interval,
+            | DiscordantReadKind(DiscordantRead { interval, .. }) => interval.start,
+        }
+    }
+
+    fn end(&self) -> u64 {
+        use AlignedPair::*;
+        match self {
+            PairedReadsKind(PairedReads { interval, .. })
+            | UnpairedReadKind(UnpairedRead { interval, .. })
+            | DiscordantReadKind(DiscordantRead { interval, .. }) => interval.end,
         }
     }
 }
@@ -159,12 +201,12 @@ impl_alignment![DiscordantRead, PairedReads, UnpairedRead];
 /// Match aligned reads to their mate pairs
 ///
 /// Output order is determined by the read name of the first read in the pair.
-pub fn pair_reads(reads: Vec<AlignedRead>) -> Vec<AlignedPair> {
+pub fn pair_reads(reads: Vec<AlignedRead>) -> Result<Vec<AlignedPair>> {
     let mut reads_by_name: BTreeMap<String, VecDeque<AlignedRead>> = BTreeMap::new();
     let mut existing_reads;
     for read in reads.into_iter() {
         existing_reads =
-            reads_by_name.entry(read.read_name.clone()).or_insert(VecDeque::with_capacity(2));
+            reads_by_name.entry(read.qname.clone()).or_insert(VecDeque::with_capacity(2));
         existing_reads.push_back(read);
     }
     let mut pairs = Vec::new();
@@ -175,7 +217,7 @@ pub fn pair_reads(reads: Vec<AlignedRead>) -> Vec<AlignedPair> {
             Some(mate_pos) => {
                 if read1.region.seq_name == mate_pos.seq_name {
                     let read2 = reads.pop_front();
-                    let pair = PairedReads::new(read1, read2);
+                    let pair = PairedReads::new(read1, read2)?;
                     pairs.push(AlignedPair::PairedReadsKind(pair));
                 } else {
                     let pair = DiscordantRead::new(read1);
@@ -189,7 +231,7 @@ pub fn pair_reads(reads: Vec<AlignedRead>) -> Vec<AlignedPair> {
         }
         i = i + 1;
     }
-    pairs
+    Ok(pairs)
 }
 
 #[cfg(test)]
@@ -208,16 +250,18 @@ mod tests {
 
     pub fn gen_aligned_read_pair() -> (AlignedRead, AlignedRead) {
         let paired_read1 = AlignedRead {
-            read_name: "paired_read".to_owned(),
-            region: GenomicRegion::new("X", 0, 100),
-            mate_pos: Some(GenomicRegion::new("X", 200, 201)),
+            id: "paired_read/1".to_owned(),
+            qname: "paired_read".to_owned(),
+            region: GenomicRegion::new("X", 0, 100).unwrap(),
+            mate_pos: Some(GenomicRegion::new("X", 200, 201).unwrap()),
             diffs: Vec::new(),
             is_reverse: false,
         };
         let paired_read2 = AlignedRead {
-            read_name: "paired_read".to_owned(),
-            region: GenomicRegion::new("X", 200, 301),
-            mate_pos: Some(GenomicRegion::new("X", 0, 1)),
+            id: "paired_read/2".to_owned(),
+            qname: "paired_read".to_owned(),
+            region: GenomicRegion::new("X", 200, 301).unwrap(),
+            mate_pos: Some(GenomicRegion::new("X", 0, 1).unwrap()),
             diffs: Vec::new(),
             is_reverse: true,
         };
@@ -226,8 +270,9 @@ mod tests {
 
     pub fn gen_unpaired_read() -> AlignedRead {
         AlignedRead {
-            read_name: "unpaired_read".to_owned(),
-            region: GenomicRegion::new("X", 0, 100),
+            id: "unpaired_read/1".to_owned(),
+            qname: "unpaired_read".to_owned(),
+            region: GenomicRegion::new("X", 0, 100).unwrap(),
             mate_pos: None,
             diffs: Vec::new(),
             is_reverse: false,
@@ -236,9 +281,10 @@ mod tests {
 
     pub fn gen_missing_pair_read() -> AlignedRead {
         AlignedRead {
-            read_name: "missing_pair_read".to_owned(),
-            region: GenomicRegion::new("X", 0, 100),
-            mate_pos: Some(GenomicRegion::new("X", 6000, 6001)),
+            id: "missing_pair_read/1".to_owned(),
+            qname: "missing_pair_read".to_owned(),
+            region: GenomicRegion::new("X", 0, 100).unwrap(),
+            mate_pos: Some(GenomicRegion::new("X", 6000, 6001).unwrap()),
             diffs: Vec::new(),
             is_reverse: false,
         }
@@ -246,9 +292,10 @@ mod tests {
 
     pub fn gen_discordant_read() -> AlignedRead {
         AlignedRead {
-            read_name: "discordant_read".to_owned(),
-            region: GenomicRegion::new("X", 0, 100),
-            mate_pos: Some(GenomicRegion::new("1", 6000, 6001)),
+            id: "discordant_read/1".to_owned(),
+            qname: "discordant_read".to_owned(),
+            region: GenomicRegion::new("X", 0, 100).unwrap(),
+            mate_pos: Some(GenomicRegion::new("1", 6000, 6001).unwrap()),
             diffs: Vec::new(),
             is_reverse: false,
         }
@@ -261,9 +308,9 @@ mod tests {
         let tid_map: TidMap =
             [(0, "X".to_owned())].into_iter().collect::<BTreeMap<u32, String>>().into();
         let aligned_read = AlignedRead::from_record(&record, &seqview, &tid_map).unwrap();
-        assert_eq!(aligned_read.read_name, "test".to_owned());
-        assert_eq!(aligned_read.region, GenomicRegion::new("X", 1003, 1007));
-        assert_eq!(aligned_read.mate_pos.unwrap(), GenomicRegion::new("X", 2000, 2001));
+        assert_eq!(aligned_read.qname, "test".to_owned());
+        assert_eq!(aligned_read.region, GenomicRegion::new("X", 1003, 1007).unwrap());
+        assert_eq!(aligned_read.mate_pos.unwrap(), GenomicRegion::new("X", 2000, 2001).unwrap());
         assert!(aligned_read.diffs.is_empty());
         assert!(!aligned_read.is_reverse);
     }
@@ -291,15 +338,15 @@ mod tests {
     #[test]
     pub fn test_init_paired_reads_with_pair() {
         let (read1, read2) = gen_aligned_read_pair();
-        let paired_reads = PairedReads::new(read1, Some(read2));
-        assert_eq!(paired_reads.interval, GenomicInterval::new(0, 301));
+        let paired_reads = PairedReads::new(read1, Some(read2)).unwrap();
+        assert_eq!(paired_reads.interval, GenomicInterval::new(0, 301).unwrap());
     }
 
     #[test]
     pub fn test_init_paired_reads_with_missing_pair() {
         let read = gen_missing_pair_read();
-        let paired_reads = PairedReads::new(read, None);
-        assert_eq!(paired_reads.interval, GenomicInterval::new(0, 6001));
+        let paired_reads = PairedReads::new(read, None).unwrap();
+        assert_eq!(paired_reads.interval, GenomicInterval::new(0, 6001).unwrap());
     }
 
     #[test]
@@ -317,14 +364,13 @@ mod tests {
             discordant_read_clone,
             unpaired_read_clone,
         ) = all_reads.clone().into_iter().collect_tuple().unwrap();
-        let result = pair_reads(all_reads);
+        let result = pair_reads(all_reads).unwrap();
         let expected_result = vec![
             AlignedPair::DiscordantReadKind(DiscordantRead::new(discordant_read_clone)),
-            AlignedPair::PairedReadsKind(PairedReads::new(missing_pair_read_clone, None)),
-            AlignedPair::PairedReadsKind(PairedReads::new(
-                paired_read1_clone,
-                Some(paired_read2_clone),
-            )),
+            AlignedPair::PairedReadsKind(PairedReads::new(missing_pair_read_clone, None).unwrap()),
+            AlignedPair::PairedReadsKind(
+                PairedReads::new(paired_read1_clone, Some(paired_read2_clone)).unwrap(),
+            ),
             AlignedPair::UnpairedReadKind(UnpairedRead::new(unpaired_read_clone)),
         ];
         assert_eq!(result, expected_result);

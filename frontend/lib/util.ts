@@ -52,5 +52,10 @@ export const range = (start: number, end: number): number[] => {
 };
 
 export const hexToString = (hex: number): string => {
-  return `#${hex.toString(16)}`;
+  let hexString = `${hex.toString(16)}`;
+  if (hexString.length < 3) {
+    hexString = hexString.padStart(3 - hexString.length, "0");
+  }
+  hexString = "#" + hexString;
+  return hexString;
 };

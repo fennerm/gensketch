@@ -1,3 +1,4 @@
+use anyhow::Result;
 use rust_htslib::bam::record::{Cigar, Record, Seq};
 use serde::Serialize;
 
@@ -194,7 +195,7 @@ impl<'a> DiffAlignments<'a> {
     /// Collapse sequence differences which span multiple bases into a single SequenceDiff object.
     ///
     /// E.g required for Ins/Del diffs which commonly span multiple bases.
-    fn collapse_diff(&mut self) -> SequenceDiff {
+    fn collapse_diff(&mut self) -> Result<SequenceDiff> {
         let initial_aligned_pair = self.aligned_pairs[self.aligned_pair_index];
         let mut aligned_pair = initial_aligned_pair;
         let mut sequence = Vec::new();
@@ -226,25 +227,26 @@ impl<'a> DiffAlignments<'a> {
             self.aligned_pair_index += 1;
         }
         let sequence = String::from_utf8_lossy(&sequence).into();
-        match initial_aligned_pair {
+        let diff = match initial_aligned_pair {
             (Cigar::Ins(_), _, _) => SequenceDiff::Ins {
-                interval: (self.current_diff_ref_start, current_ref_pos).into(),
+                interval: (self.current_diff_ref_start, current_ref_pos).try_into()?,
                 sequence,
             },
             (Cigar::SoftClip(_), _, _) => SequenceDiff::SoftClip {
-                interval: (self.current_diff_ref_start, current_ref_pos + 1).into(),
+                interval: (self.current_diff_ref_start, current_ref_pos + 1).try_into()?,
                 sequence,
             },
             (Cigar::Del(_), _, _) => SequenceDiff::Del {
-                interval: (self.current_diff_ref_start, current_ref_pos + 1).into(),
+                interval: (self.current_diff_ref_start, current_ref_pos + 1).try_into()?,
             },
             (Cigar::RefSkip(_), _, _) => SequenceDiff::RefSkip {
-                interval: (self.current_diff_ref_start, current_ref_pos + 1).into(),
+                interval: (self.current_diff_ref_start, current_ref_pos + 1).try_into()?,
             },
             _ => {
                 panic!("extend_diff_group called with invalid input");
             }
-        }
+        };
+        Ok(diff)
     }
 
     /// Determine if a base with an M or X CIGAR operation has a mismatch.
@@ -253,24 +255,28 @@ impl<'a> DiffAlignments<'a> {
     /// mismatch. We handle this by directly comparing the read sequence to the reference sequence
     /// at these positions. An alternative would be to parse the MD tag but since reads from
     /// certain sequencers/aligners do not populate this tag its safer to just use the CIGAR.
-    fn handle_possible_mismatch(&mut self, read_pos: usize, ref_pos: u64) -> Option<SequenceDiff> {
+    fn handle_possible_mismatch(
+        &mut self,
+        read_pos: usize,
+        ref_pos: u64,
+    ) -> Result<Option<SequenceDiff>> {
         let read_base = self.record_sequence[read_pos];
         let ref_base = self.refseq[ref_pos];
         if read_base != ref_base {
-            let interval = GenomicInterval { start: ref_pos, end: ref_pos + 1 };
-            return Some(SequenceDiff::Mismatch {
+            let interval = (ref_pos, ref_pos + 1).try_into()?;
+            return Ok(Some(SequenceDiff::Mismatch {
                 interval,
                 sequence: String::from_utf8_lossy(&[read_base]).into(),
-            });
+            }));
         }
-        None
+        Ok(None)
     }
 }
 
 impl<'a> Iterator for DiffAlignments<'a> {
-    type Item = SequenceDiff;
+    type Item = Result<SequenceDiff>;
 
-    fn next(&mut self) -> Option<SequenceDiff> {
+    fn next(&mut self) -> Option<Self::Item> {
         while self.aligned_pair_index < self.aligned_pairs.len() {
             let aligned_pair = self.aligned_pairs[self.aligned_pair_index];
             if let (_, _, Some(ref_pos)) = aligned_pair {
@@ -286,7 +292,7 @@ impl<'a> Iterator for DiffAlignments<'a> {
                     Some(self.collapse_diff())
                 }
                 (Cigar::Match(_) | Cigar::Diff(_), Some(read_pos), Some(ref_pos)) => {
-                    self.handle_possible_mismatch(read_pos, ref_pos)
+                    self.handle_possible_mismatch(read_pos, ref_pos).transpose()
                 }
                 _ => None,
             };
@@ -312,7 +318,7 @@ mod tests {
     use super::*;
     use test_util_rs::htslib_records::RecordBuilder;
 
-    pub fn run_diff(cigar: &str, read_seq: &[u8], qual: &[u8]) -> Vec<SequenceDiff> {
+    pub fn run_diff(cigar: &str, read_seq: &[u8], qual: &[u8]) -> Result<Vec<SequenceDiff>> {
         let seqview = SequenceView::new("TTTAGCTAAA".as_bytes().to_vec(), 1000);
         let record = RecordBuilder::new(
             b"read",
@@ -321,28 +327,28 @@ mod tests {
             qual,
         )
         .record;
-        iter_sequence_diffs(&record, &seqview).collect::<Vec<SequenceDiff>>()
+        iter_sequence_diffs(&record, &seqview).collect()
     }
 
     #[test]
     pub fn test_diff_with_no_diffs_and_m_cigar() {
-        let diffs = run_diff("4M", b"AGCT", b"BBBB");
+        let diffs = run_diff("4M", b"AGCT", b"BBBB").unwrap();
         assert_eq!(diffs, Vec::new());
     }
 
     #[test]
     pub fn test_diff_with_no_diffs_and_eq_cigar() {
-        let diffs = run_diff("4=", b"AGCT", b"BBBB");
+        let diffs = run_diff("4=", b"AGCT", b"BBBB").unwrap();
         assert_eq!(diffs, Vec::new());
     }
 
     #[test]
     pub fn test_diff_with_snv_and_m_cigar() {
-        let diffs = run_diff("4M", b"TGCT", b"BBBB");
+        let diffs = run_diff("4M", b"TGCT", b"BBBB").unwrap();
         assert_eq!(
             diffs,
             vec!(SequenceDiff::Mismatch {
-                interval: (1003, 1004).into(),
+                interval: (1003, 1004).try_into().unwrap(),
                 sequence: "T".to_owned()
             })
         );
@@ -350,11 +356,11 @@ mod tests {
 
     #[test]
     pub fn test_diff_with_snv_and_x_cigar() {
-        let diffs = run_diff("1X3=", b"TGCT", b"BBBB");
+        let diffs = run_diff("1X3=", b"TGCT", b"BBBB").unwrap();
         assert_eq!(
             diffs,
             vec!(SequenceDiff::Mismatch {
-                interval: (1003, 1004).into(),
+                interval: (1003, 1004).try_into().unwrap(),
                 sequence: "T".to_owned()
             })
         );
@@ -362,26 +368,29 @@ mod tests {
 
     #[test]
     pub fn test_diff_with_deletion() {
-        let diffs = run_diff("3M1D", b"AGC", b"BBB");
-        assert_eq!(diffs, vec!(SequenceDiff::Del { interval: (1006, 1007).into() }));
+        let diffs = run_diff("3M1D", b"AGC", b"BBB").unwrap();
+        assert_eq!(diffs, vec!(SequenceDiff::Del { interval: (1006, 1007).try_into().unwrap() }));
     }
 
     #[test]
     pub fn test_diff_with_insertion() {
-        let diffs = run_diff("2M1I2M", b"AGTCT", b"BBBBB");
+        let diffs = run_diff("2M1I2M", b"AGTCT", b"BBBBB").unwrap();
         assert_eq!(
             diffs,
-            vec!(SequenceDiff::Ins { interval: (1004, 1004).into(), sequence: "T".to_owned() })
+            vec!(SequenceDiff::Ins {
+                interval: (1004, 1004).try_into().unwrap(),
+                sequence: "T".to_owned()
+            })
         );
     }
 
     #[test]
     pub fn test_diff_with_softclip_at_start() {
-        let diffs = run_diff("1S3M", b"TGCT", b"BBBB");
+        let diffs = run_diff("1S3M", b"TGCT", b"BBBB").unwrap();
         assert_eq!(
             diffs,
             vec!(SequenceDiff::SoftClip {
-                interval: (1003, 1004).into(),
+                interval: (1003, 1004).try_into().unwrap(),
                 sequence: "T".to_owned()
             })
         );
@@ -389,11 +398,11 @@ mod tests {
 
     #[test]
     pub fn test_diff_with_softclip_at_end() {
-        let diffs = run_diff("3M1S", b"AGCA", b"BBBB");
+        let diffs = run_diff("3M1S", b"AGCA", b"BBBB").unwrap();
         assert_eq!(
             diffs,
             vec!(SequenceDiff::SoftClip {
-                interval: (1006, 1007).into(),
+                interval: (1006, 1007).try_into().unwrap(),
                 sequence: "A".to_owned()
             })
         );
@@ -401,22 +410,28 @@ mod tests {
 
     #[test]
     pub fn test_hardclips_dont_produce_diffs() {
-        let diffs = run_diff("3M1H", b"AGC", b"BBB");
+        let diffs = run_diff("3M1H", b"AGC", b"BBB").unwrap();
         assert_eq!(diffs, Vec::new());
     }
 
     #[test]
     pub fn test_diff_with_refskip() {
-        let diffs = run_diff("2M1N1M", b"AGT", b"BBB");
-        assert_eq!(diffs, vec!(SequenceDiff::RefSkip { interval: (1005, 1006).into() }));
+        let diffs = run_diff("2M1N1M", b"AGT", b"BBB").unwrap();
+        assert_eq!(
+            diffs,
+            vec!(SequenceDiff::RefSkip { interval: (1005, 1006).try_into().unwrap() })
+        );
     }
 
     #[test]
     pub fn test_complex_diff() {
-        let diffs = run_diff("2M3D1M4I1M", b"AGATTTTA", b"BBBBBBBB");
+        let diffs = run_diff("2M3D1M4I1M", b"AGATTTTA", b"BBBBBBBB").unwrap();
         let expected_diffs = vec![
-            SequenceDiff::Del { interval: (1005, 1008).into() },
-            SequenceDiff::Ins { interval: (1008, 1008).into(), sequence: "TTTT".to_owned() },
+            SequenceDiff::Del { interval: (1005, 1008).try_into().unwrap() },
+            SequenceDiff::Ins {
+                interval: (1008, 1008).try_into().unwrap(),
+                sequence: "TTTT".to_owned(),
+            },
         ];
         assert_eq!(diffs, expected_diffs);
     }

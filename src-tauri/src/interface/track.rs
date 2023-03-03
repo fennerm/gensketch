@@ -2,15 +2,14 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::bio_util::genomic_coordinates::GenomicRegion;
-use crate::bio_util::sequence::SequenceView;
-use crate::file_formats::sam_bam::aligned_read::{pair_reads, AlignedPair};
-use crate::file_formats::sam_bam::reader::BamReader;
-use crate::file_formats::sam_bam::stack::AlignmentStack;
-use crate::file_formats::sam_bam::tid::TidMap;
+use crate::impl_wrapped_uuid;
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+pub struct TrackId(Uuid);
+impl_wrapped_uuid!(TrackId);
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
@@ -19,7 +18,7 @@ pub enum Track {
 }
 
 impl Track {
-    pub fn id(&self) -> Uuid {
+    pub fn id(&self) -> TrackId {
         match *self {
             Self::Alignment(AlignmentTrack { id, .. }) => id,
         }
@@ -35,63 +34,46 @@ impl Track {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlignmentTrack {
-    pub id: Uuid,
+    pub id: TrackId,
     pub bam_path: PathBuf,
     pub name: String,
-    #[serde(skip_serializing)]
-    pub tid_map: TidMap,
 }
 
 impl AlignmentTrack {
     pub fn new<P: Into<PathBuf>>(bam_path: P, name: &str) -> Result<Self> {
         let pathbuf: PathBuf = bam_path.into();
-        let tid_map = TidMap::new(&pathbuf)?;
-        Ok(Self { id: Uuid::new_v4(), name: name.to_owned(), bam_path: pathbuf, tid_map })
-    }
-
-    pub fn get_bam_reader(&self) -> Result<BamReader> {
-        BamReader::new(&self.bam_path)
-    }
-
-    pub fn read_alignments(
-        &self,
-        genomic_region: &GenomicRegion,
-        refseq: &SequenceView,
-    ) -> Result<AlignmentStack<AlignedPair>> {
-        // For now just initialize a fresh reader on each command. In future we might want to
-        // optimize this to use a pool of pre-initialized readers instead.
-        let reads = self.get_bam_reader()?.read(genomic_region, refseq, &self.tid_map)?;
-        let paired_reads = pair_reads(reads);
-        let mut stack = AlignmentStack::new(paired_reads);
-        stack.stack_by_start_pos()?;
-        Ok(stack)
+        Ok(Self { id: TrackId::new(), name: name.to_owned(), bam_path: pathbuf })
     }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackList {
-    pub tracks: Vec<Track>,
+    pub inner: Vec<Track>,
 }
 
 impl TrackList {
     pub fn new() -> Self {
-        Self { tracks: Vec::new() }
+        Self { inner: Vec::new() }
     }
 
     pub fn add_alignment_track<P: Into<PathBuf>>(&mut self, path: P) -> Result<&Track> {
         let pathbuf: PathBuf = path.into();
         let name = &pathbuf.file_name().unwrap_or(OsStr::new("unknown")).to_string_lossy();
         let track = AlignmentTrack::new(&pathbuf, name.as_ref())?;
-        self.tracks.push(Track::Alignment(track));
-        Ok(self.tracks.last().unwrap())
+        self.inner.push(Track::Alignment(track));
+        Ok(self.inner.last().unwrap())
     }
 
-    pub fn get_track(&self, track_id: Uuid) -> Result<&Track> {
+    pub fn get_track(&self, track_id: TrackId) -> Result<&Track> {
         Ok(self
-            .tracks
+            .inner
             .iter()
-            .find(|track| track.id() == track_id)
+            .find(|track| *track.id() == *track_id)
             .context(format!("Track {} doesn't exist", track_id.to_string()))?)
+    }
+
+    pub fn track_ids(&self) -> Vec<TrackId> {
+        self.inner.iter().map(|track| track.id()).collect()
     }
 }

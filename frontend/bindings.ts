@@ -11,7 +11,7 @@ export type AlignedPair =
 
 export interface AlignedRead {
   readName: string;
-  region: GenomicRegion;
+  interval: GenomicInterval;
   matePos: GenomicRegion | null;
   diffs: Array<SequenceDiff>;
   isReverse: boolean;
@@ -44,8 +44,7 @@ export interface GenomicInterval {
 
 export interface GenomicRegion {
   seqName: string;
-  start: bigint;
-  end: bigint;
+  interval: GenomicInterval;
 }
 
 export interface PairedReads {
@@ -102,9 +101,11 @@ export type NucleotideColorConfig = {
 };
 
 export interface ColorConfig {
+  background: number;
+  text: number;
   alignment: number;
   trackLabelBackground: number;
-  trackLabelText: number;
+  secondaryText: number;
   nucleotideColors: NucleotideColorConfig;
 }
 
@@ -114,4 +115,14 @@ export interface StyleConfig {
 
 export interface UserConfig {
   styles: StyleConfig;
+}
+
+export type SeqLengthMap = {
+  [seqName: string]: BigInt;
+};
+
+export interface ReferenceSequence {
+  name: string;
+  path: string;
+  seq_lengths: SeqLengthMap;
 }

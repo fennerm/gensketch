@@ -1,32 +1,56 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Serialize;
-use tauri::api::path::local_data_dir;
+// use tauri::api::path::local_data_dir;
 
+use crate::bio_util::genomic_coordinates::GenomicRegion;
+use crate::bio_util::sequence::SequenceView;
 use crate::file_formats::fasta::reader::FastaReader;
+
+/// Generate a map from sequence name to sequence length from an indexed fasta file.
+fn map_sequence_lengths<P: Into<PathBuf>>(path: P) -> Result<BTreeMap<String, u64>> {
+    let reader = FastaReader::new(path)?;
+    let sizes = reader.sequences().iter().map(|seq| (seq.name.clone(), seq.len)).collect();
+    Ok(sizes)
+}
 
 /// Metadata for the currently loaded genomic reference sequence.
 #[derive(Debug, Serialize)]
 pub struct ReferenceSequence {
     pub name: String,
     pub path: PathBuf,
+    pub seq_lengths: BTreeMap<String, u64>,
+    #[serde(skip_serializing)]
+    pub default_focused_region: GenomicRegion,
 }
 
 impl ReferenceSequence {
-    pub fn new<P: Into<PathBuf>>(name: String, path: P) -> Self {
-        Self { name, path: path.into() }
+    pub fn new<P: Into<PathBuf>>(name: String, path: P) -> Result<Self> {
+        let pathbuf = path.into();
+        let seq_lengths = map_sequence_lengths(&pathbuf)?;
+        let (default_seq_name, default_seq_len) =
+            seq_lengths.first_key_value().context("Reference sequence file is empty")?;
+        let default_focused_region = GenomicRegion::new(default_seq_name, 0, *default_seq_len)?;
+        Ok(Self { name, path: pathbuf, seq_lengths, default_focused_region })
     }
 
     pub fn get_reader(&self) -> Result<FastaReader> {
         FastaReader::new(&self.path)
     }
+
+    pub fn read_sequence(&self, region: &GenomicRegion) -> Result<SequenceView> {
+        let sequence = self.get_reader()?.read(region)?;
+        Ok(sequence)
+    }
 }
 
 /// Get the reference sequence which is loaded automatically on startup
-pub fn get_default_reference() -> Result<Option<ReferenceSequence>> {
+pub fn get_default_reference() -> Result<ReferenceSequence> {
     // TODO cache path from previous session
     // TODO Try redownload if missing?
+    // TODO Need to make 100 % sure we can load a reference here. May need multiple fallbacks.
 
     // let refseq = local_data_dir().as_mut().map(|path| {
     //     path.push("gensketch");
@@ -39,13 +63,15 @@ pub fn get_default_reference() -> Result<Option<ReferenceSequence>> {
     }
     path.push("test_data");
     path.push("fake-genome.fa");
-    let refseq = ReferenceSequence::new("HG19".to_owned(), path.to_owned());
-    Ok(Some(refseq))
+    let refseq = ReferenceSequence::new("HG19".to_owned(), path.to_owned())?;
+    Ok(refseq)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::get_default_reference;
+    use test_util_rs::data::get_test_data_path;
+
+    use super::*;
 
     #[test]
     pub fn test_get_default_reference_sequence() {
@@ -53,5 +79,14 @@ mod tests {
         assert_eq!(result.name, "HG19");
         let path_end: Vec<_> = result.path.into_iter().rev().take(2).collect();
         assert_eq!(path_end, vec!("fake-genome.fa", "test_data"));
+    }
+
+    #[test]
+    pub fn test_map_sequence_lengths() {
+        let path = get_test_data_path("fake-genome.fa");
+        let expected =
+            [("euk_genes".to_owned(), 5000), ("mt".to_owned(), 15000)].into_iter().collect();
+        let result = map_sequence_lengths(path).unwrap();
+        assert_eq!(result, expected);
     }
 }

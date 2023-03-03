@@ -10,7 +10,8 @@
     "dev": "vite",
     "preview": "vite preview",
     "tauri": "RUST_LOG=debug tauri",
-    "tauri-dev": "RUST_LOG=debug tauri dev"
+    "tauri-dev": "RUST_LOG=debug tauri dev",
+    "typecov": "type-coverage --strict --detail --ignore-catch | grep -v error"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.0.17",
@@ -38,12 +39,15 @@
     "@vitejs/plugin-react": "^2.1.0",
     "eslint": "^8.27.0",
     "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-compat": "^4.1.0",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-jsx-a11y": "^6.6.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-react": "^7.32.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "pino-pretty": "^9.1.1",
     "prettier": "^2.7.1",
+    "type-coverage": "^2.24.1",
     "typescript": "^4.6.4",
     "vite": "^3.1.0"
   }

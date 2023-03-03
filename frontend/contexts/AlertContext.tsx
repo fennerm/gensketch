@@ -21,9 +21,9 @@ interface AlertApiContextInterface {
   readonly updateAlertStatus: ({ alertId, newStatus }: AlertStatusUpdateParams) => void;
 }
 
-export const AlertContext = createContext<AlertContextInterface>({} as AlertContextInterface);
+export const AlertContext = createContext<AlertContextInterface>({ alerts: [] });
 export const AlertApiContext = createContext<AlertApiContextInterface>(
-  {} as AlertApiContextInterface
+  {} as AlertApiContextInterface // Safe cast because it will always be set in the provider
 );
 
 export const AlertContextProvider = ({
@@ -74,7 +74,6 @@ export const AlertContextProvider = ({
 
   const value = {
     alerts,
-    addAlert,
   };
   const apiValue = {
     addAlert,

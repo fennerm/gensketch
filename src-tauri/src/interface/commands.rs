@@ -1,34 +1,77 @@
+/// Tauri commands to be called from the frontend
 use std::path::PathBuf;
 
-use uuid::Uuid;
+use anyhow::Result;
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
-use crate::bio_util::refseq::{get_default_reference, ReferenceSequence};
-use crate::errors::{CommandError, CommandResult};
-use crate::file_formats::sam_bam::aligned_read::AlignedPair;
-use crate::file_formats::sam_bam::stack::AlignmentStack;
+use crate::bio_util::refseq::get_default_reference;
+use crate::errors::CommandResult;
+use crate::interface::alignments_manager::AlignmentsManager;
 use crate::interface::backend::Backend;
-use crate::interface::events::{emit_event, FocusedRegionUpdated};
-use crate::interface::track::Track;
-use crate::interface::user_config::{read_user_config, UserConfig};
+use crate::interface::events::{
+    emit_event, AlignmentsUpdatedPayload, ClearAlignmentsPayload, Event,
+    FocusedRegionUpdatedPayload, FocusedSequenceUpdatedPayload,
+};
+use crate::interface::split::{BoundState, SplitId, SplitList};
+use crate::interface::track::TrackList;
+
+fn add_split_helper(
+    state: &tauri::State<Backend>,
+    app: &tauri::AppHandle,
+    focused_region: GenomicRegion,
+) -> Result<SplitId> {
+    let mut splits = state.splits.write();
+    let new_split = splits.add_split(focused_region.clone())?;
+    let mut alignments_manager = state.alignments.write();
+    alignments_manager.add_split(&new_split.id, focused_region)?;
+    emit_event(app, Event::SplitAdded, &new_split)?;
+    Ok(new_split.id)
+}
 
 #[tauri::command(async)]
 pub fn add_alignment_track(
     app: tauri::AppHandle,
     state: tauri::State<Backend>,
     bam_path: PathBuf,
-) -> CommandResult<serde_json::value::Value> {
+) -> CommandResult<()> {
+    let default_focused_region = state.reference_sequence.read().default_focused_region.clone();
     let mut tracks = state.tracks.write();
-    let num_existing_tracks = tracks.tracks.len();
+    let num_existing_tracks = tracks.inner.len();
+    let new_track = tracks.add_alignment_track(bam_path.clone())?;
+    let mut alignments_manager = state.alignments.write();
+    let new_split_id = add_split_helper(&state, &app, default_focused_region.clone())?;
     if num_existing_tracks == 0 {
-        let mut splits = state.splits.write();
-        let new_split = splits.add_split(None)?;
-        emit_event(&app, "split-added", &new_split)?;
+        alignments_manager.add_first_track(
+            &new_track.id(),
+            bam_path,
+            &new_split_id,
+            default_focused_region,
+        )?;
+    } else {
+        alignments_manager.add_track(&new_track.id(), bam_path)?;
     }
-    let new_track = tracks.add_alignment_track(bam_path)?;
-    emit_event(&app, "track-added", &new_track)?;
-    let result_json = serde_json::value::to_value(&new_track)?;
-    Ok(result_json)
+    emit_event(&app, Event::TrackAdded, &new_track)?;
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn initialize(app: tauri::AppHandle, state: tauri::State<Backend>) -> CommandResult<()> {
+    let mut refseq = state.reference_sequence.write();
+    *refseq = get_default_reference()?;
+    let mut splits = state.splits.write();
+    *splits = SplitList::new();
+    let mut tracks = state.tracks.write();
+    *tracks = TrackList::new();
+    let mut alignments = state.alignments.write();
+    *alignments = AlignmentsManager::new();
+    drop(splits);
+    drop(tracks);
+    emit_event(&app, Event::RefSeqFileUpdated, &*refseq)?;
+    drop(refseq);
+    emit_event(&app, Event::SplitGridCleared, {})?;
+    let user_config = state.user_config.read();
+    emit_event(&app, Event::UserConfigUpdated, &*user_config)?;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -36,84 +79,105 @@ pub fn add_split(
     app: tauri::AppHandle,
     state: tauri::State<Backend>,
     focused_region: Option<GenomicRegion>,
-) -> CommandResult<serde_json::value::Value> {
-    let mut splits = state.splits.write();
-    let new_split = splits.add_split(focused_region)?;
-    let result_json = serde_json::value::to_value(&new_split)?;
-    emit_event(&app, "split-added", &new_split)?;
-    Ok(result_json)
-}
-
-#[tauri::command(async)]
-pub fn default_reference() -> CommandResult<Option<ReferenceSequence>> {
-    return Ok(get_default_reference()?);
-}
-
-// TODO Return nothing when window too large
-#[tauri::command(async)]
-pub fn get_alignments(
-    state: tauri::State<Backend>,
-    genomic_region: Option<GenomicRegion>,
-    track_id: Uuid,
-) -> CommandResult<AlignmentStack<AlignedPair>> {
-    let genomic_region = match genomic_region {
+) -> CommandResult<()> {
+    let split_region = match focused_region {
         Some(region) => region,
-        None => return Ok(AlignmentStack::default()),
+        None => state.get_default_new_split_region()?,
     };
-    let mut ref_seq_reader = match &*state.reference_sequence.read() {
-        Some(refseq) => refseq.get_reader()?,
-        None => {
-            return Err(CommandError::ValidationError("No reference sequence loaded".to_owned()))
-        }
-    };
-    let tracks = state.tracks.read();
-    let track = tracks.get_track(track_id)?;
-    if let Track::Alignment(alignment_track) = track {
-        let refseq = ref_seq_reader.read(&genomic_region)?;
-        let alignments = alignment_track.read_alignments(&genomic_region, &refseq)?;
-        log::debug!("Fetched {} alignments in {}", alignments.len(), &genomic_region);
-        Ok(alignments)
-    } else {
-        Err(CommandError::ValidationError(format!(
-            "Cannot call get_alignments on track {} (invalid track type)",
-            track.name()
-        )))
-    }
-}
-
-#[tauri::command(async)]
-pub fn get_reference_sequence(
-    state: tauri::State<Backend>,
-    genomic_region: GenomicRegion,
-) -> CommandResult<String> {
-    match &*state.reference_sequence.read() {
-        Some(refseq) => {
-            // For now just initialize a fresh reader on each command. In future we might want to
-            // optimize this to use a pool of pre-initialized readers instead.
-            Ok(refseq.get_reader()?.read(&genomic_region)?.to_string()?)
-        }
-        None => Err(CommandError::ValidationError("No reference sequence loaded".to_owned())),
-    }
+    add_split_helper(&state, &app, split_region)?;
+    Ok(())
 }
 
 #[tauri::command(async)]
 pub fn update_focused_region(
     app: tauri::AppHandle,
     state: tauri::State<Backend>,
-    split_id: Uuid,
-    genomic_region: Option<GenomicRegion>,
-) -> CommandResult<serde_json::value::Value> {
+    split_id: SplitId,
+    genomic_region: GenomicRegion,
+) -> CommandResult<()> {
     let mut splits = state.splits.write();
-    let mut split = splits.get_split(split_id)?;
-    let event =
-        FocusedRegionUpdated { split_id: split_id.clone(), genomic_region: genomic_region.clone() };
-    emit_event(&app, "focused-region-updated", &event)?;
-    split.focused_region = genomic_region;
-    let result_json = serde_json::value::to_value(event)?;
-    Ok(result_json)
-}
+    let split = splits.get_split(split_id)?;
+    let bound_state = split.check_bounds(&genomic_region);
+    state.update_split_region(split_id, genomic_region.clone())?;
+    emit_event(
+        &app,
+        Event::FocusedRegionUpdated,
+        FocusedRegionUpdatedPayload { split_id, genomic_region: genomic_region.clone() },
+    )?;
 
-#[tauri::command(async)]
-pub fn get_user_config() -> CommandResult<UserConfig> {
-    Ok(read_user_config()?)
+    let mut alignments_manager = state.alignments.write();
+    match bound_state {
+        BoundState::OutsideBuffered => {
+            emit_event(&app, Event::ClearAlignments, ClearAlignmentsPayload { split_id })?;
+            let sequence_view = state.reference_sequence.write().read_sequence(&genomic_region)?;
+            emit_event(
+                &app,
+                Event::FocusedSequenceUpdated,
+                FocusedSequenceUpdatedPayload {
+                    split_id,
+                    sequence: Some(sequence_view.to_string()?),
+                },
+            )?;
+            let updated_alignments =
+                alignments_manager.update_alignments(&split_id, &genomic_region, &sequence_view)?;
+            updated_alignments
+                .iter()
+                .map(|(track_id, alignments)| {
+                    let payload = AlignmentsUpdatedPayload {
+                        split_id,
+                        track_id: *track_id,
+                        alignments: &alignments.read(),
+                    };
+                    emit_event(&app, Event::AlignmentsUpdated, payload)
+                })
+                .collect::<anyhow::Result<_>>()?;
+        }
+        BoundState::OutsideRefreshBound => {
+            let sequence_view = state.reference_sequence.write().read_sequence(&genomic_region)?;
+            emit_event(
+                &app,
+                Event::FocusedSequenceUpdated,
+                FocusedSequenceUpdatedPayload {
+                    split_id,
+                    sequence: Some(sequence_view.to_string()?),
+                },
+            )?;
+            let mut alignments_manager = state.alignments.write();
+            let updated_alignments =
+                alignments_manager.update_alignments(&split_id, &genomic_region, &sequence_view)?;
+            updated_alignments
+                .iter()
+                .map(|(track_id, alignments)| {
+                    let payload = AlignmentsUpdatedPayload {
+                        split_id,
+                        track_id: *track_id,
+                        alignments: &alignments.read(),
+                    };
+                    emit_event(&app, Event::AlignmentsUpdateQueued, payload)
+                })
+                .collect::<anyhow::Result<_>>()?;
+        }
+        BoundState::OutsideRenderRange => {
+            emit_event(
+                &app,
+                Event::FocusedSequenceUpdated,
+                FocusedSequenceUpdatedPayload { split_id, sequence: None },
+            )?;
+            let updated_alignments =
+                alignments_manager.clear_alignments(&split_id, &genomic_region)?;
+            updated_alignments
+                .iter()
+                .map(|(track_id, alignments)| {
+                    let payload = AlignmentsUpdatedPayload {
+                        split_id,
+                        track_id: *track_id,
+                        alignments: &alignments.read(),
+                    };
+                    emit_event(&app, Event::AlignmentsUpdated, payload)
+                })
+                .collect::<anyhow::Result<_>>()?;
+        }
+        BoundState::WithinRefreshBound => (),
+    };
+    Ok(())
 }

@@ -27,12 +27,6 @@ import { useBackendListener } from "../lib/hooks";
 import LOG from "../lib/logger";
 import { AlertApiContext } from "./AlertContext";
 
-export interface SplitState {
-  id: string;
-  widthPct: number;
-  focusedRegion: GenomicRegion | null;
-}
-
 export interface TrackState {
   id: string;
   heightPct: number;
@@ -61,7 +55,7 @@ interface SplitGridApiContextInterface {
 }
 
 interface TrackContextInterface {
-  reference: ReferenceSequenceData;
+  reference: ReferenceSequenceData | null;
   tracks: TrackState[];
 }
 
@@ -78,16 +72,14 @@ type AlignmentsResult = Promise<{
 export const SplitContext = createContext<SplitContextInterface>({ splits: [] });
 
 export const TrackContext = createContext<TrackContextInterface>({
-  reference: {} as ReferenceSequenceData,
+  reference: null,
   tracks: [],
 });
 
-export const SplitGridApiContext = createContext<SplitGridApiContextInterface>(
-  {} as SplitGridApiContextInterface
-);
+export const SplitGridApiContext = createContext<SplitGridApiContextInterface | null>(null);
 
 export const AlignmentsContext = createContext<AlignmentsContextInterface>(
-  {} as AlignmentsContextInterface
+  {} as AlignmentsContextInterface // Safe cast because it will always be set in the provider
 );
 
 export const SplitGridContextProvider = ({
@@ -103,32 +95,6 @@ export const SplitGridContextProvider = ({
   const allTrackIds = useRef<string[]>([]);
   const allSplitIds = useRef<string[]>([]);
   const focusedRegions = useRef<FocusedRegionState>({});
-
-  const addSplit = (newSplit: SplitData): void => {
-    setSplits((state) => {
-      LOG.debug(`Handling spit-added event: ${JSON.stringify(newSplit)}`);
-      const numSplits = state.length;
-      const newSplitWidth = 100 / (numSplits + 1);
-      state.map((split) => {
-        split.widthPct = split.widthPct - newSplitWidth / numSplits;
-      });
-      const newSplitState: SplitState = {
-        id: newSplit.id,
-        widthPct: newSplitWidth,
-        focusedRegion: newSplit.focusedRegion,
-      };
-      LOG.debug(`Updating UI with new split: ${JSON.stringify(newSplitState)}`);
-      state.push(newSplitState);
-      allSplitIds.current.push(newSplitState.id);
-      focusedRegions.current[newSplitState.id] = newSplitState.focusedRegion;
-      return [...state];
-    });
-    updateAlignments({
-      splitIds: [newSplit.id],
-      trackIds: allTrackIds.current,
-      genomicRegion: newSplit.focusedRegion,
-    });
-  };
 
   const getAlignmentsResult = ({
     genomicRegion,
@@ -155,31 +121,6 @@ export const SplitGridContextProvider = ({
         LOG.error(error);
         return null;
       });
-  };
-
-  const addTrack = (newTrack: AlignmentTrackData): void => {
-    LOG.debug(`Handling track-added event: ${JSON.stringify(newTrack)}`);
-    setTracks((state) => {
-      LOG.debug("setTracks called...");
-      const numTracks = state.length;
-      const newTrackHeight = 100 / (numTracks + 1);
-      state.map((track) => {
-        track.heightPct = track.heightPct - newTrackHeight / numTracks;
-      });
-      const newTrackState: TrackState = {
-        ...newTrack,
-        heightPct: newTrackHeight,
-      };
-      state.push(newTrackState);
-      allTrackIds.current.push(newTrackState.id);
-      LOG.debug(`Updating UI with new track: ${JSON.stringify(newTrackState)}`);
-      return [...state];
-    });
-    updateAlignments({
-      splitIds: allSplitIds.current,
-      trackIds: [newTrack.id],
-      useExistingRegion: true,
-    });
   };
 
   const updateAlignments = ({

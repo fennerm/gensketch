@@ -2,14 +2,12 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use bio::io::fasta;
+use bio::io::fasta::{self, Sequence};
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::sequence::SequenceView;
 
 /// A reader for indexed .fasta files.
-///
-// TODO Pool of readers for multithreaded access
 #[derive(Debug)]
 pub struct FastaReader {
     pub reference_path: PathBuf,
@@ -24,15 +22,19 @@ impl FastaReader {
         Ok(FastaReader { reference_path: pathbuf, reader })
     }
 
+    pub fn sequences(&self) -> Vec<Sequence> {
+        self.reader.index.sequences()
+    }
+
     /// Get sequence in fasta file for a given genomic region
     pub fn read(&mut self, region: &GenomicRegion) -> Result<SequenceView> {
-        self.reader.fetch(&region.seq_name, region.start, region.end).with_context(|| {
+        self.reader.fetch(&region.seq_name, region.start(), region.end()).with_context(|| {
             format!("Failed to fetch {} from {}", region, self.reference_path.display())
         })?;
         let mut sequence: Vec<u8> = Vec::new();
         self.reader.read(&mut sequence)?;
         sequence = sequence.into_iter().filter(|c| *c != b'\n').collect();
-        let view = SequenceView::new(sequence, region.start);
+        let view = SequenceView::new(sequence, region.start());
         Ok(view)
     }
 }
@@ -47,7 +49,7 @@ mod tests {
     fn test_reading() {
         let fasta_file = get_test_data_path("fake-genome.fa");
         let mut reader = FastaReader::new(fasta_file).unwrap();
-        let region = GenomicRegion::new("mt", 0, 20);
+        let region = GenomicRegion::new("mt", 0, 20).unwrap();
         let sequence_view = reader.read(&region).unwrap();
         assert_eq!(sequence_view.to_string().unwrap(), "GATCACAGGTCTATCACCCT".to_owned());
     }

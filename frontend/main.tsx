@@ -1,4 +1,3 @@
-import { ChakraProvider } from "@chakra-ui/react";
 import { createRoot } from "react-dom/client";
 
 import App from "./App";
@@ -7,8 +6,9 @@ import { monkeyPatchBigInt } from "./lib/util";
 
 monkeyPatchBigInt();
 
-createRoot(document.getElementById("root") as HTMLElement).render(
-  <ChakraProvider>
-    <App />
-  </ChakraProvider>
-);
+const rootElement = document.getElementById("root");
+if (rootElement === null) {
+  throw "Root div is null";
+}
+
+createRoot(rootElement).render(<App />);

@@ -18,14 +18,29 @@ interface RefSeqContextInterface {
   };
 }
 
-export const RefSeqContext = createContext<RefSeqContextInterface>({} as RefSeqContextInterface);
+interface RefSeqApiContextInterface {
+  updateFocusedRegion: ({
+    splitId,
+    newFocusedRegion,
+  }: {
+    splitId: string;
+    newFocusedRegion: GenomicRegion | null;
+  }) => void;
+}
+
+export const RefSeqContext = createContext<RefSeqContextInterface>(
+  {} as RefSeqContextInterface // Safe cast because it will always be set in the provider
+);
+export const RefSeqApiContext = createContext<RefSeqApiContextInterface>(
+  {} as RefSeqApiContextInterface // Safe cast because it will always be set in the provider
+);
 
 export const RefSeqContextProvider = ({
   children,
 }: {
   readonly children?: ReactNode;
 }): ReactElement => {
-  const [splitData, setSplitData] = useState<RefSeqContextInterface>({});
+  const [splitData, setSplitData] = useState<RefSeqContextInterface | null>(null);
   const alertApi = useContext(AlertApiContext);
 
   const getReferenceSequenceSafe = (genomicRegion: GenomicRegion | null): Promise<string> => {
@@ -56,13 +71,18 @@ export const RefSeqContextProvider = ({
     });
   };
 
-  const handleFocusChange = (event: FocusedRegionUpdated): void => {
-    LOG.debug(`Handling focused-region-updated event ${JSON.stringify(event)}`);
-    getReferenceSequenceSafe(event.genomicRegion)
+  const updateFocusedRegion = ({
+    splitId,
+    newFocusedRegion,
+  }: {
+    splitId: string;
+    newFocusedRegion: GenomicRegion | null;
+  }): void => {
+    getReferenceSequenceSafe(newFocusedRegion)
       .then((sequence) => {
         setSplitData((splitData) => {
-          splitData[event.splitId] = { sequence, focusedRegion: event.genomicRegion };
-          LOG.debug(`Updated focused region to ${JSON.stringify(event.genomicRegion)}`);
+          splitData[splitId] = { sequence, focusedRegion: newFocusedRegion };
+          LOG.debug(`Updated focused region to ${JSON.stringify(newFocusedRegion)}`);
           return { ...splitData };
         });
       })
@@ -72,10 +92,21 @@ export const RefSeqContextProvider = ({
       });
   };
 
+  const handleFocusChange = (event: FocusedRegionUpdated): void => {
+    LOG.debug(`Handling focused-region-updated event ${JSON.stringify(event)}`);
+    updateFocusedRegion({ splitId: event.splitId, newFocusedRegion: event.genomicRegion });
+  };
+
   useBackendListener(listenForSplitAdded, (event) => addSplit(event.payload));
   useBackendListener(listenForFocusedRegionUpdated, (event: Event<FocusedRegionUpdated>) => {
     handleFocusChange(event.payload);
   });
 
-  return <RefSeqContext.Provider value={splitData}>{children}</RefSeqContext.Provider>;
+  return (
+    <RefSeqContext.Provider value={splitData}>
+      <RefSeqApiContext.Provider value={{ updateFocusedRegion }}>
+        {children}
+      </RefSeqApiContext.Provider>
+    </RefSeqContext.Provider>
+  );
 };

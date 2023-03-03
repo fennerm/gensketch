@@ -12,6 +12,7 @@ import {
   FocusedRegionUpdated,
   GenomicInterval,
   GenomicRegion,
+  ReferenceSequence,
   ReferenceSequenceData,
   SplitData,
   UserConfig,
@@ -31,7 +32,7 @@ export const convertReadCoordToBigInt = (read: AlignedRead | null): void => {
   if (read === null) {
     return;
   }
-  convertCoordToBigInt(read.region);
+  convertCoordToBigInt(read.interval);
   read.diffs.forEach((diff) => {
     convertCoordToBigInt(diff.interval);
   });
@@ -48,14 +49,11 @@ export const addAlignmentTrack = ({
 };
 
 export const addSplit = ({
-  referencePath,
   focusedRegion,
 }: {
-  referencePath: string;
   readonly focusedRegion: GenomicRegion | GenomicRegion | null;
 }): Promise<SplitData> => {
   return invoke("add_split", {
-    referencePath,
     focusedRegion,
   }).then((splitData: any) => {
     convertCoordToBigInt(splitData.focusedRegion);
@@ -147,6 +145,10 @@ export const listenForAlertStatusUpdated: EventListener<AlertStatusUpdateParams>
 
 export const listenForUserConfigUpdated: EventListener<UserConfig> = (callback) => {
   return listen("user-config-updated", callback);
+};
+
+export const listenForRefSeqFileUpdated: EventListener<ReferenceSequence> = (callback) => {
+  return listen("ref-seq-file-updated", callback);
 };
 
 export const openFileDialog = async (): Promise<string[] | null> => {

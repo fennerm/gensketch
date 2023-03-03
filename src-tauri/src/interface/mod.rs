@@ -1,3 +1,4 @@
+pub mod alignments_manager;
 pub mod backend;
 pub mod commands;
 pub mod events;

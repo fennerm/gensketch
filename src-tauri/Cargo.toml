@@ -29,9 +29,11 @@ tauri-build = { version = "1.2.1", features = [] }
 # anyhow = { workspace = true }
 # bio = { workspace = true }
 # bio-types = { workspace = true }
+# dashmap= { workspace = true }
 # itertools = {workspace = true}
 # log = { workspace = true }
 # parking_lot = { workspace = true }
+# rayon = { workspace = true }
 # rust-htslib = { workspace = true }
 # serde_json = { workspace = true }
 # serde_with = { workspace = true }
@@ -43,9 +45,11 @@ tauri-build = { version = "1.2.1", features = [] }
 anyhow = { version = "1.0", features = ["backtrace"] }
 bio = "1.0"
 bio-types = {version = "0.13", features = ["serde"] }
+dashmap= { version = "5.4.0", features = ["rayon"] }
 itertools = "0.10"
 log = "0.4"
 parking_lot = {version = "0.12", features = ["serde"] }
+rayon = "1.6.1"
 rust-htslib = "0.40"
 serde_json = "1.0"
 serde_with = "2.2.0"

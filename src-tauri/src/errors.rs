@@ -58,10 +58,21 @@ impl From<serde_json::Error> for CommandError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum InternalError {
+    #[error("{start}-{end} is an invalid genomic interval")]
+    InvalidGenomicInterval { start: u64, end: u64 },
+
     #[error("{seq_name} is not present in reference")]
     InvalidSeqName { seq_name: String },
-    // #[error("{msg}")]
-    // InvalidAlignment { msg: String },
-    // #[error("{msg}")]
-    // InvalidReadPair { msg: String },
+
+    #[error("Error opening {filename} - file type is not supported")]
+    InvalidFileType { filename: String },
+
+    #[error("No reference sequence initialized")]
+    NoRefSeqInitialized {},
+
+    #[error("No tracks initialized")]
+    NoTracksInitialized {},
+
+    #[error("Pushing this item would lead to invalid sort")]
+    PushError {},
 }

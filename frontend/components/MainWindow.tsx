@@ -1,5 +1,5 @@
 import { Flex } from "@chakra-ui/react";
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useState } from "react";
 
 import { useEventListener } from "../lib/hooks";
 import LOG from "../lib/logger";
@@ -30,6 +30,7 @@ const MainWindow = (): ReactElement => {
       className="app"
       height={`${windowDimensions.height}px`}
       width={`${windowDimensions.width}px`}
+      bg="brand.bg"
     >
       <ErrorBoundary>
         <Toolbar height="150px" width="full" />
