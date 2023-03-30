@@ -4,10 +4,8 @@
 
 use std::marker::PhantomData;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use serde::Serialize;
-
-use crate::errors::InternalError;
 
 /// Alignment trait to be implemented by concrete record types.
 pub trait Alignment {
@@ -72,7 +70,7 @@ impl<T: Alignment> AlignmentSearchList<T, SortStart> {
             if value.start() < last.start()
                 || (value.start() == last.start() && value.id() < last.id())
             {
-                return Err(InternalError::PushError {})?;
+                bail!("Pushing value {} would lead to unsorted data", value.id())
             }
         }
 
@@ -163,7 +161,7 @@ impl<T: Alignment> AlignmentSearchList<T, SortEnd> {
     pub fn push(&mut self, value: T) -> Result<()> {
         if let Some(last) = self.inner.last() {
             if value.end() < last.end() || (value.end() == last.end() && value.id() < last.id()) {
-                return Err(InternalError::PushError {})?;
+                bail!("Pushing value {} would lead to unsorted data", value.id());
             }
         }
 

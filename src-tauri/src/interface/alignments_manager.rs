@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use rayon::prelude::*;
@@ -9,7 +9,6 @@ use rayon::prelude::*;
 use crate::alignments::stack_reader::StackReader;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::sequence::SequenceView;
-use crate::errors::InternalError;
 use crate::file_formats::enums::AlignmentStackKind;
 use crate::interface::split::SplitId;
 use crate::interface::track::TrackId;
@@ -67,7 +66,7 @@ impl AlignmentsManager {
 
     pub fn add_split(&mut self, split_id: &SplitId, buffered_region: GenomicRegion) -> Result<()> {
         if self.stack_readers.len() == 0 {
-            return Err(InternalError::NoTracksInitialized {})?;
+            bail!("No tracks initialized");
         }
         for (track_id, path) in self.tracks() {
             let stack_reader = StackReader::new(path, buffered_region.clone())?;
@@ -99,6 +98,18 @@ impl AlignmentsManager {
                 Ok((track_id.clone(), stack_reader.stack()))
             })
             .collect()
+    }
+
+    pub fn get_alignments(
+        &self,
+        track_id: TrackId,
+        split_id: SplitId,
+    ) -> Result<Arc<RwLock<AlignmentStackKind>>> {
+        let reader = self.stack_readers.get(&(track_id, split_id)).context(format!(
+            "Failed to find alignments for track={}, split={}",
+            &track_id, &split_id
+        ))?;
+        Ok(reader.stack())
     }
 
     pub fn update_alignments(

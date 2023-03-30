@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use parking_lot::RwLock;
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
@@ -46,7 +46,11 @@ impl Backend {
         split_id: SplitId,
         focused_region: GenomicRegion,
     ) -> Result<()> {
-        self.splits.write().get_split(split_id)?.set_focused_region(focused_region)?;
+        let seq_length = self.reference_sequence.read().get_seq_length(&focused_region.seq_name)?;
+        self.splits
+            .write()
+            .get_split_mut(split_id)?
+            .set_focused_region(focused_region, seq_length)?;
         Ok(())
     }
 }

@@ -1,10 +1,9 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 use std::path::PathBuf;
 
 use crate::alignments::stack::{AlignmentStack, StackId};
 use crate::bio_util::genomic_coordinates::GenomicRegion;
-use crate::errors::InternalError;
 use crate::file_formats::sam_bam::aligned_read::AlignedPair;
 use crate::file_formats::sam_bam::reader::BamReader;
 
@@ -27,31 +26,32 @@ pub fn get_file_kind<P: Into<PathBuf>>(path: P) -> Result<FileKind> {
             Ok(FileKind::Fasta)
         }
         Some(_) | None => {
-            Err(InternalError::InvalidFileType { filename: pathbuf.to_string_lossy().to_string() })?
+            Err(anyhow!("Unrecognized file type: {}", pathbuf.to_string_lossy().to_string()))
         }
     }
 }
 
 #[derive(Debug, Serialize)]
+#[serde(untagged)]
 pub enum AlignmentStackKind {
-    AlignedPair(AlignmentStack<AlignedPair>),
+    AlignedPairKind(AlignmentStack<AlignedPair>),
 }
 impl AlignmentStackKind {
     pub fn id(&self) -> StackId {
         match *self {
-            Self::AlignedPair(AlignmentStack { id, .. }) => id,
+            Self::AlignedPairKind(AlignmentStack { id, .. }) => id,
         }
     }
     pub fn buffered_region(&self) -> &GenomicRegion {
         match &*self {
-            Self::AlignedPair(AlignmentStack { buffered_region, .. }) => buffered_region,
+            Self::AlignedPairKind(AlignmentStack { buffered_region, .. }) => buffered_region,
         }
     }
 }
 
 #[derive(Debug)]
 pub enum AlignmentReaderKind {
-    Bam(BamReader),
+    BamKind(BamReader),
 }
 
 #[cfg(test)]

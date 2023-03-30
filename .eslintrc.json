@@ -1,36 +1,42 @@
 {
-    "root": true,
-    "parser": "@typescript-eslint/parser",
-    "plugins": [
-        "@typescript-eslint",
-        "eslint-plugin-node",
-        "compat"
-    ],
-    "extends": [
-      "eslint:recommended",
-      "prettier",
-      "plugin:@typescript-eslint/eslint-recommended",
-      "plugin:react-hooks/recommended",
-      "plugin:compat/recommended"
-    ],
-    "env": {
-        "browser": true
-    },
-    "ignorePatterns": ["src-tauri"],
-    "parserOptions": {
-        "ecmaVersion": 2021,
-        "project": "./tsconfig.json"
-    },
-    "rules": {
-        "no-unused-vars": "off",
-        "@typescript-eslint/no-unused-vars": ["error"]
-    },
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "project": "./tsconfig.json",
+    "extraFileExtensions": [".svelte"]
+  },
+  "overrides": [
+    {
+      "files": ["*.svelte"],
+      "parser": "svelte-eslint-parser",
+      "parserOptions": {
+        "parser": "@typescript-eslint/parser"
+      }
+    }
+  ],
+  "plugins": ["@typescript-eslint", "eslint-plugin-node", "compat"],
+  "extends": [
+    "eslint:recommended",
+    "prettier",
+    "plugin:@typescript-eslint/eslint-recommended",
+    "plugin:compat/recommended",
+    "plugin:svelte/recommended"
+  ],
+  "env": {
+    "browser": true
+  },
+  "ignorePatterns": ["src-tauri"],
+  "rules": {
+    "no-unused-vars": "off",
+    "no-self-assign": "off",
     "@typescript-eslint/no-unused-vars": [
-        "error",
-        { 
-            "argsIgnorePattern": "^_",
-            "varsIgnorePattern": "^_",
-            "caughtErrorsIgnorePattern": "^_"
-        }
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
     ]
+  }
 }

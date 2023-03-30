@@ -1,14 +1,13 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
 
 use crate::alignments::alignment_reader::AlignmentReader;
 use crate::alignments::stack::AlignmentStack;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::sequence::SequenceView;
-use crate::errors::InternalError;
 use crate::file_formats::enums::{
     get_file_kind, AlignmentReaderKind, AlignmentStackKind, FileKind,
 };
@@ -35,13 +34,15 @@ impl StackReader {
         let pathbuf = path.into();
         match get_file_kind(&pathbuf)? {
             FileKind::Bam | FileKind::Sam => {
-                let stack = AlignmentStackKind::AlignedPair(AlignmentStack::new(buffered_region));
-                let reader = AlignmentReaderKind::Bam(BamReader::new(&pathbuf)?);
+                let stack =
+                    AlignmentStackKind::AlignedPairKind(AlignmentStack::new(buffered_region));
+                let reader = AlignmentReaderKind::BamKind(BamReader::new(&pathbuf)?);
                 Ok(Self { path: pathbuf, stack: Arc::new(RwLock::new(stack)), reader })
             }
-            _ => Err(InternalError::InvalidFileType {
-                filename: pathbuf.to_string_lossy().to_string(),
-            })?,
+            _ => Err(anyhow!(
+                "File extension is not a recognized alignment file format: {}",
+                pathbuf.to_string_lossy().to_string()
+            )),
         }
     }
 
@@ -59,7 +60,7 @@ impl StackReader {
     /// UI.
     pub fn clear_stack(&mut self, region: &GenomicRegion) -> Result<()> {
         match &mut *self.stack.write() {
-            AlignmentStackKind::AlignedPair(stack) => stack.clear(region),
+            AlignmentStackKind::AlignedPairKind(stack) => stack.clear(region),
         };
         Ok(())
     }
@@ -67,13 +68,13 @@ impl StackReader {
     /// Read alignments from the file into the stack.
     pub fn read_stacked(&mut self, region: &GenomicRegion, seqview: &SequenceView) -> Result<()> {
         let alignments = match &mut self.reader {
-            AlignmentReaderKind::Bam(reader) => {
+            AlignmentReaderKind::BamKind(reader) => {
                 let aligned_reads = reader.read(region, seqview)?;
                 pair_reads(aligned_reads)?
             }
         };
         match &mut *self.stack.write() {
-            AlignmentStackKind::AlignedPair(stack) => stack.update(alignments, region),
+            AlignmentStackKind::AlignedPairKind(stack) => stack.update(alignments, region),
         }?;
         Ok(())
     }
@@ -113,7 +114,7 @@ mod tests {
         let reader = read_example_stack();
         let stack = reader.stack();
         let stack_lock = stack.read();
-        if let AlignmentStackKind::AlignedPair(stack) = &*stack_lock {
+        if let AlignmentStackKind::AlignedPairKind(stack) = &*stack_lock {
             assert!(stack.rows.len() > 0)
         } else {
             panic!("Unexpected alignment stack kind")
@@ -127,7 +128,7 @@ mod tests {
         reader.clear_stack(&region).unwrap();
         let stack = reader.stack();
         let stack_lock = stack.read();
-        if let AlignmentStackKind::AlignedPair(stack) = &*stack_lock {
+        if let AlignmentStackKind::AlignedPairKind(stack) = &*stack_lock {
             assert_eq!(stack.rows.len(), 0)
         } else {
             panic!("Unexpected alignment stack kind")

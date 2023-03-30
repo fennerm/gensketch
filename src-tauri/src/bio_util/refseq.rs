@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
+use serde_with::{serde_as, DisplayFromStr};
 // use tauri::api::path::local_data_dir;
 
 use crate::bio_util::genomic_coordinates::GenomicRegion;
@@ -17,12 +18,14 @@ fn map_sequence_lengths<P: Into<PathBuf>>(path: P) -> Result<BTreeMap<String, u6
 }
 
 /// Metadata for the currently loaded genomic reference sequence.
+#[serde_as]
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReferenceSequence {
     pub name: String,
     pub path: PathBuf,
+    #[serde_as(as = "BTreeMap<_, DisplayFromStr>")]
     pub seq_lengths: BTreeMap<String, u64>,
-    #[serde(skip_serializing)]
     pub default_focused_region: GenomicRegion,
 }
 
@@ -38,6 +41,15 @@ impl ReferenceSequence {
 
     pub fn get_reader(&self) -> Result<FastaReader> {
         FastaReader::new(&self.path)
+    }
+
+    pub fn get_seq_length(&self, seq_name: &str) -> Result<u64> {
+        self.seq_lengths.get(seq_name).map(|len| *len).with_context(|| {
+            format!(
+                "Sequence named {} is not present on reference sequence {}",
+                seq_name, self.name
+            )
+        })
     }
 
     pub fn read_sequence(&self, region: &GenomicRegion) -> Result<SequenceView> {
@@ -75,7 +87,7 @@ mod tests {
 
     #[test]
     pub fn test_get_default_reference_sequence() {
-        let result = get_default_reference().unwrap().unwrap();
+        let result = get_default_reference().unwrap();
         assert_eq!(result.name, "HG19");
         let path_end: Vec<_> = result.path.into_iter().rev().take(2).collect();
         assert_eq!(path_end, vec!("fake-genome.fa", "test_data"));

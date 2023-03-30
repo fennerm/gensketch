@@ -9,6 +9,9 @@ use crate::file_formats::enums::AlignmentStackKind;
 use crate::interface::split::SplitId;
 use crate::interface::track::TrackId;
 
+// Truncate events to this length when logging
+const MAX_LOGGED_EVENT_LEN: usize = 1000;
+
 pub enum Event {
     AlignmentsUpdated,
     AlignmentsUpdateQueued,
@@ -42,7 +45,14 @@ impl fmt::Display for Event {
 pub fn emit_event<S: Serialize + Clone>(app: &AppHandle, event: Event, payload: S) -> Result<()> {
     let event_name = event.to_string();
     app.emit_all(&event_name, &payload)?;
-    log::debug!("{} event {}", &event_name, serde_json::to_string(&payload)?);
+    if cfg!(debug_assertions) {
+        let mut json = serde_json::to_string(&payload)?;
+        if json.len() > MAX_LOGGED_EVENT_LEN {
+            json.truncate(MAX_LOGGED_EVENT_LEN);
+            json.push_str("...");
+        }
+        log::debug!("{} event {}", &event_name, json);
+    }
     Ok(())
 }
 
@@ -60,13 +70,16 @@ pub struct ClearAlignmentsPayload {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AlignmentsUpdatedPayload<'a> {
     pub split_id: SplitId,
     pub track_id: TrackId,
+    pub focused_region: GenomicRegion,
     pub alignments: &'a AlignmentStackKind,
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FocusedSequenceUpdatedPayload {
     pub split_id: SplitId,
     pub sequence: Option<String>,

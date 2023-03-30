@@ -1,11 +1,9 @@
 use std::convert::From;
 use std::fmt;
 
-use anyhow::{Error, Result};
+use anyhow::{bail, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
-
-use crate::errors::InternalError;
 
 /// A set of genomic coordinates.
 ///
@@ -23,7 +21,7 @@ pub struct GenomicRegion {
 impl GenomicRegion {
     pub fn new(seq_name: &str, start: u64, end: u64) -> Result<Self> {
         if end < start {
-            return Err(InternalError::InvalidGenomicInterval { start, end })?;
+            bail!("Invalid genomic coordinates: {}-{}", start, end);
         }
         Ok(Self { seq_name: seq_name.to_owned(), interval: (start, end).try_into()? })
     }
@@ -79,7 +77,7 @@ pub struct GenomicInterval {
 impl GenomicInterval {
     pub fn new(start: u64, end: u64) -> Result<Self> {
         if end < start {
-            return Err(InternalError::InvalidGenomicInterval { start, end })?;
+            bail!("Invalid genomic coordinates: {}-{}", start, end);
         }
         Ok(Self { start, end })
     }
@@ -89,7 +87,7 @@ impl GenomicInterval {
     }
 
     pub fn expand(&self, by: u64) -> Result<Self> {
-        Self::new(self.start - by, self.end + by)
+        Self::new(self.start.saturating_sub(by), self.end + by)
     }
 
     pub fn contract(&self, by: u64) -> Result<Self> {

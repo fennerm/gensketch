@@ -13,7 +13,8 @@ use tauri_plugin_log::{LogTarget, LoggerBuilder};
 
 use crate::interface::backend::Backend;
 use crate::interface::commands::{
-    add_alignment_track, add_split, initialize, update_focused_region,
+    add_alignment_track, add_split, get_alignments, get_focused_region, get_focused_sequence,
+    get_reference_sequence, get_user_config, initialize, update_focused_region,
 };
 
 fn main() -> Result<()> {
@@ -27,6 +28,11 @@ fn main() -> Result<()> {
         .invoke_handler(tauri::generate_handler![
             add_alignment_track,
             add_split,
+            get_alignments,
+            get_focused_region,
+            get_focused_sequence,
+            get_reference_sequence,
+            get_user_config,
             initialize,
             update_focused_region
         ])

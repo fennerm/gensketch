@@ -26,7 +26,7 @@ pub struct NucleotideColorConfig {
 #[serde(rename_all = "camelCase")]
 pub struct ColorConfig {
     background: u32,
-    text: u32,
+    foreground: u32,
     alignment: u32,
     track_label_background: u32,
     secondary_text: u32,
@@ -60,7 +60,7 @@ pub fn read_user_config() -> Result<UserConfig> {
             colors: ColorConfig {
                 alignment: parse_hex("#969592")?,
                 background: parse_hex("#f2f2f2")?,
-                text: parse_hex("#222222")?,
+                foreground: parse_hex("#222222")?,
                 track_label_background: parse_hex("#243f47")?,
                 secondary_text: parse_hex("#f2f2f2")?,
                 nucleotide_colors: NucleotideColorConfig {

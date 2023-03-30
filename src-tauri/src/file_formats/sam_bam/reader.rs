@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use parking_lot::Mutex;
 use rust_htslib::bam;
 use rust_htslib::bam::record::Record;
@@ -9,7 +9,6 @@ use rust_htslib::bam::Read;
 use crate::alignments::alignment_reader::AlignmentReader;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::sequence::SequenceView;
-use crate::errors::InternalError;
 use crate::file_formats::sam_bam::aligned_read::AlignedRead;
 use crate::file_formats::sam_bam::tid::TidMap;
 
@@ -34,7 +33,7 @@ impl AlignmentReader for BamReader {
 
     fn read(&mut self, region: &GenomicRegion, refseq: &SequenceView) -> Result<Vec<Self::Item>> {
         if self.tid_map.get_tid(&region.seq_name).is_none() {
-            return Err(InternalError::InvalidSeqName { seq_name: region.seq_name.clone() })?;
+            bail!("Invalid contig/chromosome name: {}", region.seq_name);
         }
         let mut reader = self.reader.lock();
         reader.fetch((region.seq_name.as_str(), region.start(), region.end()))?;
