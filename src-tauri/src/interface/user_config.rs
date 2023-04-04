@@ -35,8 +35,15 @@ pub struct ColorConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FontConfig {
+    tooltip_font_size: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StyleConfig {
     colors: ColorConfig,
+    fonts: FontConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -57,6 +64,7 @@ pub fn read_user_config() -> Result<UserConfig> {
     // TODO Read from JSON file
     let config = UserConfig {
         styles: StyleConfig {
+            fonts: FontConfig { tooltip_font_size: 18 },
             colors: ColorConfig {
                 alignment: parse_hex("#969592")?,
                 background: parse_hex("#f2f2f2")?,

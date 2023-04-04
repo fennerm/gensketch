@@ -41,6 +41,8 @@ pub struct AlignedRead {
     /// Start position of paired read (None if read is unpaired)
     pub mate_pos: Option<GenomicRegion>,
 
+    pub cigar_string: String,
+
     /// Differences in this read compared to the reference sequence (i.e SNVs/indels/clipping)
     pub diffs: Vec<SequenceDiff>,
 
@@ -75,7 +77,15 @@ impl AlignedRead {
         } else {
             id.push_str("/2")
         }
-        Ok(AlignedRead { id, qname, region: genomic_region, diffs, is_reverse, mate_pos })
+        Ok(AlignedRead {
+            id,
+            qname,
+            region: genomic_region,
+            diffs,
+            is_reverse,
+            mate_pos,
+            cigar_string: cigar.to_string(),
+        })
     }
 }
 
@@ -252,6 +262,7 @@ mod tests {
         let paired_read1 = AlignedRead {
             id: "paired_read/1".to_owned(),
             qname: "paired_read".to_owned(),
+            cigar_string: "100M".to_owned(),
             region: GenomicRegion::new("X", 0, 100).unwrap(),
             mate_pos: Some(GenomicRegion::new("X", 200, 201).unwrap()),
             diffs: Vec::new(),
@@ -260,6 +271,7 @@ mod tests {
         let paired_read2 = AlignedRead {
             id: "paired_read/2".to_owned(),
             qname: "paired_read".to_owned(),
+            cigar_string: "100M".to_owned(),
             region: GenomicRegion::new("X", 200, 301).unwrap(),
             mate_pos: Some(GenomicRegion::new("X", 0, 1).unwrap()),
             diffs: Vec::new(),
@@ -274,6 +286,7 @@ mod tests {
             qname: "unpaired_read".to_owned(),
             region: GenomicRegion::new("X", 0, 100).unwrap(),
             mate_pos: None,
+            cigar_string: "100M".to_owned(),
             diffs: Vec::new(),
             is_reverse: false,
         }
@@ -285,6 +298,7 @@ mod tests {
             qname: "missing_pair_read".to_owned(),
             region: GenomicRegion::new("X", 0, 100).unwrap(),
             mate_pos: Some(GenomicRegion::new("X", 6000, 6001).unwrap()),
+            cigar_string: "100M".to_owned(),
             diffs: Vec::new(),
             is_reverse: false,
         }
@@ -296,6 +310,7 @@ mod tests {
             qname: "discordant_read".to_owned(),
             region: GenomicRegion::new("X", 0, 100).unwrap(),
             mate_pos: Some(GenomicRegion::new("1", 6000, 6001).unwrap()),
+            cigar_string: "100M".to_owned(),
             diffs: Vec::new(),
             is_reverse: false,
         }

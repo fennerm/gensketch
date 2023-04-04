@@ -15,7 +15,9 @@ const MAX_LOGGED_EVENT_LEN: usize = 1000;
 pub enum Event {
     AlignmentsUpdated,
     AlignmentsUpdateQueued,
-    ClearAlignments,
+    AlignmentsPanned,
+    AlignmentsZoomed,
+    AlignmentsCleared,
     FocusedRegionUpdated,
     FocusedSequenceUpdated,
     RefSeqFileUpdated,
@@ -30,7 +32,9 @@ impl fmt::Display for Event {
         match self {
             Event::AlignmentsUpdated => write!(f, "alignments-updated"),
             Event::AlignmentsUpdateQueued => write!(f, "alignments-update-queued"),
-            Event::ClearAlignments => write!(f, "clear-alignments"),
+            Event::AlignmentsZoomed => write!(f, "alignments-zoomed"),
+            Event::AlignmentsPanned => write!(f, "alignments-panned"),
+            Event::AlignmentsCleared => write!(f, "alignments-cleared"),
             Event::FocusedRegionUpdated => write!(f, "focused-region-updated"),
             Event::FocusedSequenceUpdated => write!(f, "focused-sequence-updated"),
             Event::RefSeqFileUpdated => write!(f, "ref-seq-file-updated"),
@@ -65,7 +69,7 @@ pub struct FocusedRegionUpdatedPayload {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ClearAlignmentsPayload {
+pub struct AlignmentsClearedPayload {
     pub split_id: SplitId,
 }
 

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
+use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use rayon::prelude::*;
@@ -44,7 +45,7 @@ impl AlignmentsManager {
         buffered_region: GenomicRegion,
     ) -> Result<()> {
         let stack_reader = StackReader::new(path, buffered_region.clone())?;
-        self.stack_readers.insert((*track_id, *split_id), stack_reader);
+        self.stack_readers.insert((track_id.clone(), split_id.clone()), stack_reader);
         Ok(())
     }
 
@@ -53,7 +54,7 @@ impl AlignmentsManager {
         for (split_id, buffered_region) in self.splits() {
             let stack_reader = StackReader::new(pathbuf.clone(), buffered_region.clone())?;
             let stack_id = stack_reader.stack().read().id();
-            self.stack_readers.insert((*track_id, split_id), stack_reader);
+            self.stack_readers.insert((track_id.clone(), split_id.clone()), stack_reader);
             log::debug!(
                 "Initialized alignment stack {} for track={}, split={}",
                 stack_id,
@@ -71,7 +72,7 @@ impl AlignmentsManager {
         for (track_id, path) in self.tracks() {
             let stack_reader = StackReader::new(path, buffered_region.clone())?;
             let stack_id = stack_reader.stack().read().id();
-            self.stack_readers.insert((track_id, *split_id), stack_reader);
+            self.stack_readers.insert((track_id.clone(), split_id.clone()), stack_reader);
             log::debug!(
                 "Initialized alignment stack {} for track={}, split={}",
                 stack_id,
@@ -79,14 +80,13 @@ impl AlignmentsManager {
                 split_id
             );
         }
-
         Ok(())
     }
 
     pub fn clear_alignments(
         &mut self,
         split_id: &SplitId,
-        focused_region: &GenomicRegion,
+        buffered_region: &GenomicRegion,
     ) -> Result<Vec<(TrackId, Arc<RwLock<AlignmentStackKind>>)>> {
         self.stack_readers
             .par_iter_mut()
@@ -94,28 +94,49 @@ impl AlignmentsManager {
             .map(|mut item| {
                 let track_id = item.key().0;
                 let stack_reader = item.value_mut();
-                stack_reader.clear_stack(focused_region)?;
+                stack_reader.clear_stack(buffered_region)?;
                 Ok((track_id.clone(), stack_reader.stack()))
             })
             .collect()
     }
 
-    pub fn get_alignments(
+    fn get_reader(
         &self,
-        track_id: TrackId,
-        split_id: SplitId,
-    ) -> Result<Arc<RwLock<AlignmentStackKind>>> {
-        let reader = self.stack_readers.get(&(track_id, split_id)).context(format!(
+        track_id: &TrackId,
+        split_id: &SplitId,
+    ) -> Result<Ref<(TrackId, SplitId), StackReader>> {
+        let reader = self.stack_readers.get(&(*track_id, *split_id)).context(format!(
             "Failed to find alignments for track={}, split={}",
             &track_id, &split_id
         ))?;
+        Ok(reader)
+    }
+
+    pub fn get_alignments(
+        &self,
+        track_id: &TrackId,
+        split_id: &SplitId,
+    ) -> Result<Arc<RwLock<AlignmentStackKind>>> {
+        let reader = self.get_reader(track_id, split_id)?;
         Ok(reader.stack())
     }
 
     pub fn update_alignments(
         &mut self,
+        track_id: &TrackId,
         split_id: &SplitId,
-        focused_region: &GenomicRegion,
+        buffered_region: &GenomicRegion,
+        refseq: &SequenceView,
+    ) -> Result<Arc<RwLock<AlignmentStackKind>>> {
+        let mut reader = self.get_reader(track_id, split_id)?;
+        reader.read_stacked(buffered_region, refseq)?;
+        Ok(reader.stack())
+    }
+
+    pub fn update_split_alignments(
+        &mut self,
+        split_id: &SplitId,
+        buffered_region: &GenomicRegion,
         refseq: &SequenceView,
     ) -> Result<Vec<(TrackId, Arc<RwLock<AlignmentStackKind>>)>> {
         self.stack_readers
@@ -123,9 +144,9 @@ impl AlignmentsManager {
             .filter(|x| x.key().1 == *split_id)
             .map(|mut item| {
                 let track_id = item.key().0;
-                let stack_reader = item.value_mut();
-                stack_reader.read_stacked(focused_region, refseq)?;
-                Ok((track_id.clone(), stack_reader.stack()))
+                let alignments =
+                    self.update_alignments(&track_id, split_id, buffered_region, refseq)?;
+                Ok((track_id.clone(), alignments))
             })
             .collect()
     }

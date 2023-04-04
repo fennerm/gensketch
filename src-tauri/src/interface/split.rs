@@ -85,6 +85,7 @@ impl Split {
         } else if region.seq_name != self.buffered_region.seq_name
             || region.start() < self.buffered_region.start()
             || region.end() > self.buffered_region.end()
+            || self.buffered_region.len() > MAX_RENDER_WINDOW
         {
             BoundState::OutsideBuffered
         } else if region.start() < self.refresh_bound_region.start()

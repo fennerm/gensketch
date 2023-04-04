@@ -4,14 +4,13 @@ use std::path::PathBuf;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::bio_util::refseq::get_default_reference;
 use crate::errors::CommandResult;
-use crate::file_formats::enums::AlignmentStackKind;
 use crate::interface::alignments_manager::AlignmentsManager;
 use crate::interface::backend::Backend;
 use crate::interface::events::{
-    emit_event, AlignmentsUpdatedPayload, ClearAlignmentsPayload, Event,
+    emit_event, AlignmentsClearedPayload, AlignmentsUpdatedPayload, Event,
     FocusedRegionUpdatedPayload, FocusedSequenceUpdatedPayload,
 };
-use crate::interface::split::{BoundState, Split, SplitId, SplitList};
+use crate::interface::split::{BoundState, SplitId, SplitList};
 use crate::interface::track::{TrackId, TrackList};
 
 #[tauri::command(async)]
@@ -93,9 +92,20 @@ pub fn get_alignments(
     track_id: TrackId,
     split_id: SplitId,
 ) -> CommandResult<serde_json::Value> {
+    HERE - Need to update alignments before returning
+    // let splits = state.splits.read();
+    // let split = splits.get_split(split_id)?;
+    // let sequence_view = match &new_split.check_bounds(&split_region) {
+    //     BoundState::OutsideRenderRange => None,
+    //     _ => Some(state.reference_sequence.write().read_sequence(&split_region)?),
+    // };
+    // if let Some(refseq) = sequence_view {
+    //     alignments_manager.update_alignments(&new_split.id, &split_region, &refseq)?;
+    // }
     let alignments_manager = state.alignments.read();
     let alignments = alignments_manager.get_alignments(track_id, split_id)?;
     let json = serde_json::to_value(&*alignments.read())?;
+
     Ok(json)
 }
 
@@ -136,9 +146,20 @@ pub fn add_split(
     let mut splits = state.splits.write();
     let new_split = splits.add_split(split_region.clone(), seq_length)?;
     let mut alignments_manager = state.alignments.write();
-    alignments_manager.add_split(&new_split.id, split_region)?;
-    drop(alignments_manager);
+    alignments_manager.add_split(&new_split.id, split_region.clone())?;
     emit_event(&app, Event::SplitAdded, &new_split)?;
+    let sequence_view = match &new_split.check_bounds(&split_region) {
+        BoundState::OutsideRenderRange => None,
+        _ => Some(state.reference_sequence.write().read_sequence(new_split.buffered_region())?),
+    };
+    if let Some(refseq) = sequence_view {
+        alignments_manager.update_split_alignments(
+            &new_split.id,
+            new_split.buffered_region(),
+            &refseq,
+        )?;
+    }
+    drop(alignments_manager);
     Ok(())
 }
 
@@ -152,9 +173,15 @@ pub fn update_focused_region(
     log::info!("Updating focused region for split {} to {}", &split_id, &genomic_region);
     let mut splits = state.splits.write();
     let split = splits.get_split_mut(split_id)?;
+    if &genomic_region == split.focused_region() {
+        return Ok(());
+    }
+    let new_region_len = genomic_region.len();
+    let prev_region_len = split.focused_region().len();
     let bound_state = split.check_bounds(&genomic_region);
     drop(split);
     drop(splits);
+
     state.update_split_region(split_id, genomic_region.clone())?;
     emit_event(
         &app,
@@ -173,10 +200,28 @@ pub fn update_focused_region(
         Event::FocusedSequenceUpdated,
         FocusedSequenceUpdatedPayload { split_id, sequence },
     )?;
+    // If the frontend already has the necessary alignments cached we can just inform it that a zoom
+    // or pan is necessay.
+    match bound_state {
+        BoundState::WithinRefreshBound | BoundState::OutsideRefreshBound => {
+            let payload =
+                FocusedRegionUpdatedPayload { split_id, genomic_region: genomic_region.clone() };
+            if new_region_len == prev_region_len {
+                emit_event(&app, Event::AlignmentsPanned, payload)?;
+            } else {
+                emit_event(&app, Event::AlignmentsZoomed, payload)?;
+            }
+        }
+        _ => (),
+    }
+
+    // Depending on whether the new region falls within our already buffered region we may need to
+    // load new alignments from the filesystem and notify the frontend.
     match bound_state {
         BoundState::OutsideBuffered => {
-            emit_event(&app, Event::ClearAlignments, ClearAlignmentsPayload { split_id })?;
-            let updated_alignments = alignments_manager.update_alignments(
+            emit_event(&app, Event::AlignmentsCleared, AlignmentsClearedPayload { split_id })?;
+            HERE we should be using buffered regions here
+            let updated_alignments = alignments_manager.update_split_alignments(
                 &split_id,
                 &genomic_region,
                 &sequence_view.unwrap(),
@@ -195,7 +240,7 @@ pub fn update_focused_region(
                 .collect::<anyhow::Result<_>>()?;
         }
         BoundState::OutsideRefreshBound => {
-            let updated_alignments = alignments_manager.update_alignments(
+            let updated_alignments = alignments_manager.update_split_alignments(
                 &split_id,
                 &genomic_region,
                 &sequence_view.unwrap(),
