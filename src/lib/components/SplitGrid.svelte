@@ -7,7 +7,7 @@
   import SplitToolbar from "@lib/components/SplitToolbar.svelte";
   import TrackArea from "@lib/components/TrackArea.svelte";
   import { DIVIDER_PX } from "@lib/constants";
-  import { loadPixiAssets } from "@lib/drawing";
+  import { loadPixiAssets } from "@lib/drawing/drawing";
   import LOG from "@lib/logger";
   import { sum } from "@lib/util";
   import { SvelteComponent, afterUpdate, onMount } from "svelte";
@@ -25,7 +25,7 @@
   let assetsLoaded: boolean = false;
 
   onMount(async () => {
-    loadPixiAssets().load(() => {
+    loadPixiAssets().then(() => {
       assetsLoaded = true;
     });
   });

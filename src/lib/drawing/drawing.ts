@@ -1,4 +1,4 @@
-import DejaVuSansMonoUrl from "../assets/DejaVuSansMono.fnt?url";
+import DejaVuSansMonoUrl from "../../assets/DejaVuSansMono.fnt?url";
 import { ValidationError } from "@lib/errors";
 import LOG from "@lib/logger";
 import type { CSSDimensions, Dimensions, Position } from "@lib/types";
@@ -9,10 +9,9 @@ import * as PIXI from "pixi.js";
 export const DRAW_LETTER_THRESHOLD = 12;
 const DEFAULT_ALIGNMENT_COLOR = 0x969592;
 
-export const loadPixiAssets = (): PIXI.Loader => {
+export const loadPixiAssets = (): Promise<any> => {
   LOG.debug("Initializing Pixi.js");
-  const loader = new PIXI.Loader();
-  return loader.add("monospace", DejaVuSansMonoUrl);
+  return PIXI.Assets.load(DejaVuSansMonoUrl);
 };
 
 export const isBitmapText = (obj: any): obj is PIXI.BitmapText => {
@@ -28,12 +27,18 @@ export const updateIfChanged = ({
   dim,
   fontSize,
   visible,
+  onMouseOver,
+  onMouseOut,
+  zIndex,
 }: {
   container: PIXI.Container;
   readonly pos?: Position;
   readonly dim?: Dimensions;
   fontSize?: number;
   visible?: boolean;
+  onMouseOver?: (event: PIXI.FederatedPointerEvent) => void;
+  onMouseOut?: (event: PIXI.FederatedPointerEvent) => void;
+  zIndex?: number;
 }): void => {
   if (pos !== undefined && pos.x !== container.x) {
     container.x = pos.x;
@@ -53,6 +58,16 @@ export const updateIfChanged = ({
   if (visible !== undefined && container.visible !== visible) {
     container.visible = visible;
   }
+  if (onMouseOver !== undefined) {
+    container.addEventListener("mouseover", onMouseOver);
+  }
+
+  if (onMouseOut !== undefined) {
+    container.addEventListener("mouseout", onMouseOut);
+  }
+  if (zIndex !== undefined && zIndex !== container.zIndex) {
+    container.zIndex = zIndex;
+  }
 };
 
 export interface PixiConstructorParams {
@@ -63,10 +78,15 @@ export class PixiApplication {
   renderer: PIXI.Renderer;
   ticker: PIXI.Ticker;
   stage: PIXI.Container;
-  dimensions: CSSDimensions;
+  dim: CSSDimensions;
 
   constructor() {
-    this.dimensions = { width: 800, height: 600 };
+    this.dim = { width: 800, height: 600 };
+    // this.renderer = PIXI.autoDetectRenderer<HTMLCanvasElement>({
+    //   backgroundAlpha: 0,
+    //   antialias: true,
+    //   resolution: window.devicePixelRatio,
+    // });
     this.renderer = new PIXI.Renderer({
       backgroundAlpha: 0,
       antialias: true,
@@ -97,44 +117,14 @@ export class PixiApplication {
     }
   };
 
-  resize = (width: number, height: number): void => {
-    this.dimensions = { width, height };
-    this.renderer.resize(width, height);
+  resize = (dim: Dimensions): void => {
+    this.dim = dim;
+    this.renderer.resize(dim.width, dim.height);
   };
 
   destroy = (): void => {
     this.renderer.destroy(true);
     this.stage.destroy(true);
-  };
-}
-
-export class RenderQueue {
-  stage: PIXI.Container;
-  graphicsQueue: PIXI.Graphics[];
-  spriteQueue: PIXI.Sprite[];
-
-  constructor(stage: PIXI.Container) {
-    this.stage = stage;
-    this.graphicsQueue = [];
-    this.spriteQueue = [];
-  }
-
-  render = (...objs: (PIXI.Graphics | PIXI.Sprite)[]) => {
-    objs.forEach((obj) => {
-      if (obj instanceof PIXI.Graphics) {
-        this.graphicsQueue.push(obj);
-      } else {
-        this.spriteQueue.push(obj);
-      }
-      this.stage.addChild(obj);
-    });
-  };
-
-  clearStage = (): void => {
-    this.graphicsQueue.forEach((obj) => obj.destroy());
-    this.stage.removeChildren();
-    this.graphicsQueue = [];
-    this.spriteQueue = [];
   };
 }
 
@@ -149,6 +139,8 @@ export interface DrawArgs {
   pos?: Position;
   dim?: Dimensions;
   fontSize?: number;
+  onMouseOver?: (event: PIXI.FederatedPointerEvent) => void;
+  onMouseOut?: (event: PIXI.FederatedPointerEvent) => void;
 }
 
 export type DrawFunction = () => PIXI.Container;
@@ -204,14 +196,23 @@ export class DrawPool {
     this.poolsize = newPoolsize;
   };
 
-  draw = ({ pos, dim, fontSize }: DrawArgs): TaggedDrawObject => {
+  draw = ({ pos, dim, fontSize, onMouseOver, onMouseOut }: DrawArgs): TaggedDrawObject => {
     if (this.objects.length == 0) {
       this.expandPool(this.poolsize + this.stepSize);
     }
     const taggedObject = this.objects.pop();
     assertIsDefined(taggedObject);
 
-    updateIfChanged({ container: taggedObject.object, pos, dim, fontSize, visible: true });
+    taggedObject.object.removeAllListeners();
+    updateIfChanged({
+      container: taggedObject.object,
+      pos,
+      dim,
+      fontSize,
+      visible: true,
+      onMouseOut,
+      onMouseOver,
+    });
 
     this.activeObjects.set(taggedObject.id, taggedObject.object);
     return taggedObject;
@@ -308,19 +309,27 @@ export const drawRect = ({
   color,
   pos,
   dim,
+  interactive = false,
+  zIndex,
 }: {
   color?: number;
   pos?: Position;
   dim?: Dimensions;
+  interactive?: boolean;
+  zIndex?: number;
 }): PIXI.Sprite => {
   const rect = PIXI.Sprite.from(PIXI.Texture.WHITE);
   dim = dim === undefined ? { width: 10, height: 5 } : dim;
   pos = pos === undefined ? { x: 0, y: 0 } : pos;
   rect.width = dim.width;
   rect.height = dim.height;
+  rect.interactive = interactive;
   rect.position.set(pos.x, pos.y);
   if (color !== undefined) {
     rect.tint = color;
+  }
+  if (zIndex !== undefined) {
+    rect.zIndex = zIndex;
   }
   return rect;
 };
@@ -328,13 +337,19 @@ export const drawRect = ({
 export const drawText = ({
   content,
   style,
+  zIndex,
 }: {
   content: string;
   style?: Partial<PIXI.IBitmapTextStyle>;
+  zIndex?: number;
 }): PIXI.BitmapText => {
   style = style === undefined ? {} : style;
   style.fontSize = style.fontSize === undefined ? 20 : style.fontSize;
   style.fontName = style.fontName === undefined ? "DejaVu Sans Mono" : style.fontName;
   style.align = style.align === undefined ? "center" : style.align;
-  return new PIXI.BitmapText(content, style);
+  const text = new PIXI.BitmapText(content, style);
+  if (zIndex !== undefined) {
+    text.zIndex = zIndex;
+  }
+  return text;
 };

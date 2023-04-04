@@ -5,6 +5,7 @@ import type {
   AlignedRead,
   AlignmentStackKind,
   AlignmentTrackData,
+  AlignmentsClearedPayload,
   AlignmentsUpdatedPayload,
   FocusedRegionUpdatedPayload,
   FocusedSequenceUpdatedPayload,
@@ -54,6 +55,7 @@ const convertAlignedPairCoordToBigInt = (alignedPair: AlignedPair): void => {
 };
 
 const convertAlignmentStackToBigInt = (alignments: AlignmentStackKind): void => {
+  convertCoordToBigInt(alignments.bufferedRegion.interval);
   alignments.rows.forEach((row) => {
     row.forEach((alignment) => {
       convertAlignedPairCoordToBigInt(alignment);
@@ -190,6 +192,26 @@ export const listenForAlignmentsUpdateQueued: EventListener<AlignmentsUpdatedPay
 ) => {
   const wrappedCallback = wrapAlignmentsUpdateCallback(callback);
   return listen("alignments-update-queued", wrappedCallback);
+};
+
+export const listenForAlignmentsCleared: EventListener<AlignmentsClearedPayload> = (callback) => {
+  return listen("alignments-cleared", callback);
+};
+
+export const listenForAlignmentsPanned: EventListener<FocusedRegionUpdatedPayload> = (callback) => {
+  const wrappedCallback = (event: Event<FocusedRegionUpdatedPayload>): void => {
+    convertCoordToBigInt(event.payload.genomicRegion?.interval);
+    callback(event);
+  };
+  return listen("alignments-panned", wrappedCallback);
+};
+
+export const listenForAlignmentsZoomed: EventListener<FocusedRegionUpdatedPayload> = (callback) => {
+  const wrappedCallback = (event: Event<FocusedRegionUpdatedPayload>): void => {
+    convertCoordToBigInt(event.payload.genomicRegion?.interval);
+    callback(event);
+  };
+  return listen("alignments-zoomed", wrappedCallback);
 };
 
 export const listenForRefSeqFileUpdated: EventListener<ReferenceSequence> = (callback) => {

@@ -10,15 +10,18 @@ export type AlignedPair =
   | ({ type: "discordantReadKind" } & DiscordantRead);
 
 export interface AlignedRead {
-  readName: string;
+  id: string;
   region: GenomicRegion;
   matePos: GenomicRegion | null;
+  cigarString: string;
   diffs: Array<SequenceDiff>;
   isReverse: boolean;
 }
 
 export interface AlignmentStack<T> {
+  id: string;
   rows: Array<Array<T>>;
+  bufferedRegion: GenomicRegion;
 }
 
 export type AlignmentStackKind = { type: "alignedPairKind" } & AlignmentStack<AlignedPair>;
@@ -34,6 +37,10 @@ export interface AlignmentsUpdatedPayload {
   splitId: string;
   focusedRegion: GenomicRegion;
   alignments: AlignmentStackKind;
+}
+
+export interface AlignmentsClearedPayload {
+  splitId: string;
 }
 
 export interface DiscordantRead {
@@ -118,8 +125,13 @@ export interface ColorConfig {
   nucleotideColors: NucleotideColorConfig;
 }
 
+export interface FontConfig {
+  tooltipFontSize: number;
+}
+
 export interface StyleConfig {
   colors: ColorConfig;
+  fonts: FontConfig;
 }
 
 export interface UserConfig {

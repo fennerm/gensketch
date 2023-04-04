@@ -8,8 +8,8 @@
     PixiApplication,
     drawRect,
     drawText,
-  } from "@lib/drawing";
-  import type { DrawConfig } from "@lib/drawing";
+  } from "@lib/drawing/drawing";
+  import type { DrawConfig } from "@lib/drawing/drawing";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
   import { onDestroy, onMount } from "svelte";
@@ -17,15 +17,15 @@
   export let splitId: string;
   export let widthPct: number;
 
-  let viewWidth: number;
-  let viewHeight: number;
-  let stage: HTMLDivElement;
-  let stageManager: DrawPoolGroup | null = null;
+  let canvasWidth: number;
+  let canvasHeight: number;
+  let canvas: HTMLDivElement;
+  let drawPool: DrawPoolGroup | null = null;
   let sequence: string | null;
   const pixiApp = new PixiApplication();
 
   $: nucleotideColors = $USER_CONFIG_STORE!.styles.colors.nucleotideColors;
-  $: viewWidth, sequence, draw();
+  $: canvasWidth, sequence, draw();
 
   const handleFocusedSequenceUpdated = (payload: FocusedSequenceUpdatedPayload): void => {
     if (payload.splitId === splitId) {
@@ -35,8 +35,8 @@
   };
 
   const initPixiRenderer = (stage: Element): void => {
-    pixiApp.resize(viewWidth, viewHeight);
-    stage.appendChild(pixiApp.renderer.view);
+    pixiApp.resize({ width: canvasWidth, height: canvasHeight });
+    stage.appendChild(pixiApp.renderer.view as HTMLCanvasElement);
   };
 
   const initStageManager = (): DrawPoolGroup => {
@@ -52,7 +52,7 @@
         poolsize: 1000,
       };
       drawConfig[nuc + "Text"] = {
-        drawFn: () => drawText({ content: nuc, style: { tint: nucColor } }),
+        drawFn: () => drawText({ content: nuc, style: { tint: nucColor, fontSize: 15 } }),
         poolsize: 100,
       };
     });
@@ -75,33 +75,33 @@
   };
 
   const draw = () => {
-    if (stageManager === null) {
+    if (drawPool === null) {
       return;
     }
     LOG.debug("Redrawing RefSeqView...");
-    stageManager.recycleAll();
-    pixiApp.resize(viewWidth, viewHeight);
+    drawPool.recycleAll();
+    pixiApp.resize({ width: canvasWidth, height: canvasHeight });
 
     if (sequence === null) {
       return;
     }
 
-    const nucWidth = viewWidth / sequence.length;
+    const nucWidth = canvasWidth / sequence.length;
     LOG.debug(
-      `Redrawing RefSeqView with nucWidth=${nucWidth}, sequence.length=${sequence.length}, width=${viewWidth}, height=${viewHeight}`
+      `Redrawing RefSeqView with nucWidth=${nucWidth}, sequence.length=${sequence.length}, width=${canvasWidth}, height=${canvasHeight}`
     );
     for (let i = 0; i < sequence.length; i++) {
       let nuc = sequence.charAt(i);
       nuc = nuc !== "-" ? nuc : "GAP";
       const x = i * nucWidth;
       if (nucWidth > DRAW_LETTER_THRESHOLD) {
-        stageManager.draw(nuc + "Text", {
+        drawPool.draw(nuc + "Text", {
           pos: { x, y: 0 },
         });
       } else {
-        stageManager.draw(nuc + "Rect", {
+        drawPool.draw(nuc + "Rect", {
           pos: { x, y: 0 },
-          dim: { width: nucWidth, height: viewHeight },
+          dim: { width: nucWidth, height: canvasHeight },
         });
       }
     }
@@ -109,8 +109,8 @@
 
   onMount(async () => {
     getFocusedSequence(splitId).then((focusedSequence) => {
-      initPixiRenderer(stage);
-      stageManager = initStageManager();
+      initPixiRenderer(canvas);
+      drawPool = initStageManager();
       sequence = focusedSequence;
       draw();
     });
@@ -124,6 +124,6 @@
   listenForFocusedSequenceUpdated((event) => handleFocusedSequenceUpdated(event.payload));
 </script>
 
-<div style:width={`${widthPct}%`} bind:offsetHeight={viewHeight} bind:offsetWidth={viewWidth}>
-  <div bind:this={stage} />
+<div style:width={`${widthPct}%`} bind:offsetHeight={canvasHeight} bind:offsetWidth={canvasWidth}>
+  <div bind:this={canvas} />
 </div>
