@@ -316,7 +316,7 @@ mod tests {
     use rust_htslib::bam::record::CigarString;
 
     use super::*;
-    use test_util_rs::htslib_records::RecordBuilder;
+    use crate::test_util::htslib_records::RecordBuilder;
 
     pub fn run_diff(cigar: &str, read_seq: &[u8], qual: &[u8]) -> Result<Vec<SequenceDiff>> {
         let seqview = SequenceView::new("TTTAGCTAAA".as_bytes().to_vec(), 1000);

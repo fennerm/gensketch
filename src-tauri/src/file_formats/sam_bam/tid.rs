@@ -53,7 +53,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use test_util_rs::data::get_test_data_path;
+    use crate::test_util::data::get_test_data_path;
 
     #[test]
     pub fn test_init_tid_map() {

@@ -18,8 +18,9 @@
         "dev": "vite",
         "preview": "vite preview",
         "tauri": "RUST_LOG=debug tauri",
-        "tauri-dev": "RUST_LOG=debug tauri dev",
-        "typecov": "type-coverage --strict --detail --ignore-catch | grep -v error"
+        "tauri-dev": "RUST_BACKTRACE=1 RUST_LOG=debug tauri dev",
+        "typecov": "type-coverage --strict --detail --ignore-catch | grep -v error",
+        "test": "RUST_BACKTRACE=1 RUST_LOG=debug cargo test"
     },
     "dependencies": {
         "@tauri-apps/api": "^1.2.0",

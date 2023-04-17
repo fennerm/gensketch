@@ -15,9 +15,9 @@ const MAX_LOGGED_EVENT_LEN: usize = 1000;
 pub enum Event {
     AlignmentsUpdated,
     AlignmentsUpdateQueued,
-    AlignmentsPanned,
-    AlignmentsZoomed,
-    AlignmentsCleared,
+    RegionPanned,
+    RegionZoomed,
+    RegionBuffering,
     FocusedRegionUpdated,
     FocusedSequenceUpdated,
     RefSeqFileUpdated,
@@ -32,9 +32,9 @@ impl fmt::Display for Event {
         match self {
             Event::AlignmentsUpdated => write!(f, "alignments-updated"),
             Event::AlignmentsUpdateQueued => write!(f, "alignments-update-queued"),
-            Event::AlignmentsZoomed => write!(f, "alignments-zoomed"),
-            Event::AlignmentsPanned => write!(f, "alignments-panned"),
-            Event::AlignmentsCleared => write!(f, "alignments-cleared"),
+            Event::RegionZoomed => write!(f, "region-zoomed"),
+            Event::RegionPanned => write!(f, "region-panned"),
+            Event::RegionBuffering => write!(f, "region-buffering"),
             Event::FocusedRegionUpdated => write!(f, "focused-region-updated"),
             Event::FocusedSequenceUpdated => write!(f, "focused-sequence-updated"),
             Event::RefSeqFileUpdated => write!(f, "ref-seq-file-updated"),
@@ -46,45 +46,64 @@ impl fmt::Display for Event {
     }
 }
 
-pub fn emit_event<S: Serialize + Clone>(app: &AppHandle, event: Event, payload: S) -> Result<()> {
-    let event_name = event.to_string();
-    app.emit_all(&event_name, &payload)?;
-    if cfg!(debug_assertions) {
-        let mut json = serde_json::to_string(&payload)?;
-        if json.len() > MAX_LOGGED_EVENT_LEN {
-            json.truncate(MAX_LOGGED_EVENT_LEN);
-            json.push_str("...");
-        }
-        log::debug!("{} event {}", &event_name, json);
+pub trait EmitEvent {
+    fn emit<S: Serialize + Clone>(&self, event: Event, payload: S) -> Result<()>;
+}
+
+pub struct EventEmitter<'a> {
+    app: &'a AppHandle,
+}
+
+impl<'a> EventEmitter<'a> {
+    pub fn new(app: &'a AppHandle) -> Self {
+        Self { app }
     }
-    Ok(())
+}
+
+impl<'a> EmitEvent for EventEmitter<'a> {
+    fn emit<S: Serialize + Clone>(&self, event: Event, payload: S) -> Result<()> {
+        let event_name = event.to_string();
+        self.app.emit_all(&event_name, &payload)?;
+        if cfg!(debug_assertions) {
+            let mut json = serde_json::to_string(&payload)?;
+            if json.len() > MAX_LOGGED_EVENT_LEN {
+                json.truncate(MAX_LOGGED_EVENT_LEN);
+                json.push_str("...");
+            }
+            log::debug!("{} event {}", &event_name, json);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FocusedRegionUpdatedPayload {
-    pub split_id: SplitId,
-    pub genomic_region: GenomicRegion,
+pub struct FocusedRegionUpdatedPayload<'a> {
+    pub split_id: &'a SplitId,
+    pub genomic_region: &'a GenomicRegion,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AlignmentsClearedPayload {
-    pub split_id: SplitId,
+pub struct RegionBufferingPayload<'a> {
+    pub split_id: &'a SplitId,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlignmentsUpdatedPayload<'a> {
-    pub split_id: SplitId,
-    pub track_id: TrackId,
-    pub focused_region: GenomicRegion,
+    pub split_id: &'a SplitId,
+    pub track_id: &'a TrackId,
+    pub focused_region: &'a GenomicRegion,
     pub alignments: &'a AlignmentStackKind,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FocusedSequenceUpdatedPayload {
-    pub split_id: SplitId,
-    pub sequence: Option<String>,
+pub struct FocusedSequenceUpdatedPayload<'a> {
+    pub split_id: &'a SplitId,
+    pub focused_region: &'a GenomicRegion,
+    pub buffered_region: &'a GenomicRegion,
+    pub focused_sequence: &'a Option<String>,
+    pub buffered_sequence: &'a Option<String>,
 }

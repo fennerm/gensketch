@@ -70,7 +70,7 @@ pub fn get_default_reference() -> Result<ReferenceSequence> {
     //     ReferenceSequence::new("HG19".to_owned(), path.to_owned())
     // });
     let mut path = std::env::current_exe()?;
-    for _ in 0..3 {
+    for _ in 0..4 {
         path.pop();
     }
     path.push("test_data");
@@ -81,7 +81,7 @@ pub fn get_default_reference() -> Result<ReferenceSequence> {
 
 #[cfg(test)]
 mod tests {
-    use test_util_rs::data::get_test_data_path;
+    use crate::test_util::data::get_test_data_path;
 
     use super::*;
 
@@ -97,7 +97,7 @@ mod tests {
     pub fn test_map_sequence_lengths() {
         let path = get_test_data_path("fake-genome.fa");
         let expected =
-            [("euk_genes".to_owned(), 5000), ("mt".to_owned(), 15000)].into_iter().collect();
+            [("euk_genes".to_owned(), 7185), ("mt".to_owned(), 16569)].into_iter().collect();
         let result = map_sequence_lengths(path).unwrap();
         assert_eq!(result, expected);
     }

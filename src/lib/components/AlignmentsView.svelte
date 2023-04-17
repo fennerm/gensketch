@@ -2,11 +2,11 @@
   import {
     getAlignments,
     getFocusedRegion,
-    listenForAlignmentsCleared,
-    listenForAlignmentsPanned,
     listenForAlignmentsUpdateQueued,
     listenForAlignmentsUpdated,
-    listenForAlignmentsZoomed,
+    listenForRegionBuffering,
+    listenForRegionPanned,
+    listenForRegionZoomed,
   } from "@lib/backend";
   import type {
     AlignmentsClearedPayload,
@@ -59,6 +59,7 @@
 
   onDestroy(async () => {
     scene?.destroy();
+    LOG.debug("Destroyed AlignmentsView PIXI application");
   });
 
   const handleAlignmentsUpdated = (payload: AlignmentsUpdatedPayload): void => {
@@ -73,20 +74,21 @@
   };
 
   const handleAlignmentsCleared = (payload: AlignmentsClearedPayload): void => {
-    if (payload.splitId == splitId) {
+    // TODO Loading wheel
+    if (payload.splitId === splitId) {
       scene?.clear();
     }
   };
 
   const handleAlignmentsPanned = (payload: FocusedRegionUpdatedPayload): void => {
-    if (scene !== null && payload.splitId == splitId) {
+    if (scene !== null && payload.splitId === splitId) {
       LOG.debug(`Panning alignments to ${to0IndexedString(payload.genomicRegion)}`);
       scene.setState({ focusedRegion: payload.genomicRegion });
     }
   };
 
   const handleAlignmentsZoomed = (payload: FocusedRegionUpdatedPayload): void => {
-    if ((payload.splitId = splitId)) {
+    if (payload.splitId === splitId) {
       LOG.debug(`Zooming alignments to ${to0IndexedString(payload.genomicRegion)}`);
       scene?.setState({ focusedRegion: payload.genomicRegion });
       scene?.draw();
@@ -99,9 +101,9 @@
   });
 
   listenForAlignmentsUpdateQueued((event) => handleAlignmentsUpdated(event.payload));
-  listenForAlignmentsCleared((event) => handleAlignmentsCleared(event.payload));
-  listenForAlignmentsPanned((event) => handleAlignmentsPanned(event.payload));
-  listenForAlignmentsZoomed((event) => handleAlignmentsZoomed(event.payload));
+  listenForRegionBuffering((event) => handleAlignmentsCleared(event.payload));
+  listenForRegionPanned((event) => handleAlignmentsPanned(event.payload));
+  listenForRegionZoomed((event) => handleAlignmentsZoomed(event.payload));
 </script>
 
 <div

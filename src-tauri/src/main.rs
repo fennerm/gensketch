@@ -8,13 +8,16 @@ mod interface;
 mod macros;
 mod util;
 
+#[cfg(test)]
+mod test_util;
+
 use anyhow::Result;
 use tauri_plugin_log::{LogTarget, LoggerBuilder};
 
 use crate::interface::backend::Backend;
 use crate::interface::commands::{
     add_alignment_track, add_split, get_alignments, get_focused_region, get_focused_sequence,
-    get_reference_sequence, get_user_config, initialize, update_focused_region,
+    get_reference_sequence, get_splits, get_user_config, initialize, update_focused_region,
 };
 
 fn main() -> Result<()> {
@@ -32,6 +35,7 @@ fn main() -> Result<()> {
             get_focused_region,
             get_focused_sequence,
             get_reference_sequence,
+            get_splits,
             get_user_config,
             initialize,
             update_focused_region

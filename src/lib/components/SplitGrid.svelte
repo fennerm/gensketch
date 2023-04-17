@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { listenForSplitAdded, listenForTrackAdded } from "@lib/backend";
+  import { getSplits, listenForSplitAdded, listenForTrackAdded } from "@lib/backend";
   import type { AlignmentTrackData, SplitData } from "@lib/bindings";
   import RefSeqArea from "@lib/components/RefSeqArea.svelte";
   import type { DividerDragHandler } from "@lib/components/SplitGrid.types";
@@ -27,6 +27,9 @@
   onMount(async () => {
     loadPixiAssets().then(() => {
       assetsLoaded = true;
+    });
+    getSplits().then((splits) => {
+      splits.map((split) => handleNewSplit(split));
     });
   });
 
@@ -56,6 +59,8 @@
       id: newSplit.id,
       widthPct: newSplitWidth,
       focusedRegion: newSplit.focusedRegion,
+      bufferedRegion: newSplit.bufferedRegion,
+      refreshBoundRegion: newSplit.refreshBoundRegion,
     };
     LOG.debug(`Updating UI with new split: ${JSON.stringify(newSplitState)}`);
     splits = [...splits, newSplitState];
@@ -140,7 +145,6 @@
   const handleVerticalDividerDrag: DividerDragHandler = ({ mouseEvent, dividerIndex }) => {
     const mouseXPos = mouseEvent.clientX;
     const mousePosPct = getMouseXPosPct(mouseXPos);
-    // const mousePosPct = (mouseXPos / window.innerWidth) * 100;
     const currentDimensions = Array.from(splits.map((split) => split.widthPct));
     const updatedSplitWidths = adjustDimensions({
       mousePosPct,

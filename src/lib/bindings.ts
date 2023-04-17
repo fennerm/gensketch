@@ -55,7 +55,10 @@ export interface FocusedRegionUpdatedPayload {
 
 export interface FocusedSequenceUpdatedPayload {
   splitId: string;
-  sequence: string;
+  focusedSequence: string | null;
+  bufferedSequence: string | null;
+  focusedRegion: GenomicRegion;
+  bufferedRegion: GenomicRegion;
 }
 
 export interface GenomicInterval {
@@ -83,17 +86,15 @@ export type SequenceDiff =
 export interface SplitData {
   id: string;
   focusedRegion: GenomicRegion;
+  bufferedRegion: GenomicRegion;
+  refreshBoundRegion: GenomicRegion;
 }
 
-export interface SplitList {
-  splits: Array<SplitData>;
-}
+export type SplitMap = {
+  [splitId: string]: SplitData;
+};
 
 export type TrackData = AlignmentTrackData;
-
-export interface TrackList {
-  tracks: Array<TrackData>;
-}
 
 export interface UnpairedRead {
   read: AlignedRead;

@@ -30,6 +30,11 @@ macro_rules! impl_wrapped_uuid {
             pub fn new() -> Self {
                 Self(uuid::Uuid::new_v4())
             }
+
+            #[cfg(test)]
+            pub fn from_string(s: &str) -> Result<Self, uuid::Error> {
+                Ok(Self(uuid::Uuid::parse_str(s)?))
+            }
         }
 
         impl std::ops::Deref for $t {

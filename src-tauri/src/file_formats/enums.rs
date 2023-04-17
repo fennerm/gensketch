@@ -21,7 +21,7 @@ pub fn get_file_kind<P: Into<PathBuf>>(path: P) -> Result<FileKind> {
         .with_context(|| format!("Unable to parse filename: {:?}", pathbuf.as_os_str()))?;
     match extension.to_str() {
         Some("bam") => Ok(FileKind::Bam),
-        Some("sam") => Ok(FileKind::Bam),
+        Some("sam") => Ok(FileKind::Sam),
         Some("fasta") | Some("fa") | Some("ffn") | Some("faa") | Some("frn") | Some("fna") => {
             Ok(FileKind::Fasta)
         }
@@ -42,7 +42,7 @@ impl AlignmentStackKind {
             Self::AlignedPairKind(AlignmentStack { id, .. }) => id,
         }
     }
-    pub fn buffered_region(&self) -> &GenomicRegion {
+    pub fn buffered_region(&self) -> &Option<GenomicRegion> {
         match &*self {
             Self::AlignedPairKind(AlignmentStack { buffered_region, .. }) => buffered_region,
         }
@@ -66,22 +66,33 @@ mod tests {
     }
 
     #[test]
-    pub fn test_get_file_kind_with_supported_filetype() {
+    pub fn test_get_file_kind_with_bam() {
         let mut pathbuf = PathBuf::new();
         pathbuf.set_file_name("test.bam");
         check_get_file_kind(&pathbuf, FileKind::Bam);
-        pathbuf.set_file_name("test.fa");
-        check_get_file_kind(&pathbuf, FileKind::Fasta);
-        pathbuf.set_file_name("test.fasta");
-        check_get_file_kind(&pathbuf, FileKind::Fasta);
+    }
+    #[test]
+    pub fn test_get_file_kind_with_sam() {
+        let mut pathbuf = PathBuf::new();
         pathbuf.set_file_name("test.sam");
         check_get_file_kind(&pathbuf, FileKind::Sam);
+    }
+    #[test]
+    pub fn test_get_file_kind_with_fa() {
+        let mut pathbuf = PathBuf::new();
+        pathbuf.set_file_name("test.fa");
+    }
+    #[test]
+    pub fn test_get_file_kind_with_fasta() {
+        let mut pathbuf = PathBuf::new();
+        pathbuf.set_file_name("test.fasta");
+        check_get_file_kind(&pathbuf, FileKind::Fasta);
     }
 
     #[test]
     pub fn test_get_file_kind_with_unsupported_filetype() {
         let mut pathbuf = PathBuf::new();
-        pathbuf.set_file_name("test.bam");
+        pathbuf.set_file_name("test.foo");
         let result = get_file_kind(pathbuf);
         assert!(result.is_err());
     }

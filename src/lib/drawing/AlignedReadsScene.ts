@@ -23,7 +23,6 @@ import LOG from "@lib/logger";
 import type { Dimensions, Position } from "@lib/types";
 import { Viewport } from "pixi-viewport";
 import * as PIXI from "pixi.js";
-import type { Style } from "util";
 
 const MAX_ALIGNMENT_HEIGHT = 24;
 const READ_BODY_POOL = "readBody";
@@ -515,6 +514,7 @@ export class AlignedReadsScene extends Scene {
     viewportWidth?: number;
     viewportHeight?: number;
   }): void => {
+    // TODO use dynamic default args like RefSeqScene
     if (alignments !== undefined) {
       this.alignments = alignments;
     }

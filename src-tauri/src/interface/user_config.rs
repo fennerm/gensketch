@@ -4,52 +4,60 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct NucleotideColorConfig {
-    a: u32,
-    g: u32,
-    c: u32,
-    t: u32,
-    n: u32,
-    r: u32,
-    y: u32,
-    k: u32,
-    m: u32,
-    s: u32,
-    w: u32,
-    b: u32,
-    d: u32,
-    h: u32,
-    v: u32,
-    gap: u32, // '-' IUPAC code
+    pub a: u32,
+    pub g: u32,
+    pub c: u32,
+    pub t: u32,
+    pub n: u32,
+    pub r: u32,
+    pub y: u32,
+    pub k: u32,
+    pub m: u32,
+    pub s: u32,
+    pub w: u32,
+    pub b: u32,
+    pub d: u32,
+    pub h: u32,
+    pub v: u32,
+    pub gap: u32, // '-' IUPAC code
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorConfig {
-    background: u32,
-    foreground: u32,
-    alignment: u32,
-    track_label_background: u32,
-    secondary_text: u32,
-    nucleotide_colors: NucleotideColorConfig,
+    pub background: u32,
+    pub foreground: u32,
+    pub alignment: u32,
+    pub track_label_background: u32,
+    pub secondary_text: u32,
+    pub nucleotide_colors: NucleotideColorConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FontConfig {
-    tooltip_font_size: u32,
+    pub tooltip_font_size: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StyleConfig {
-    colors: ColorConfig,
-    fonts: FontConfig,
+    pub colors: ColorConfig,
+    pub fonts: FontConfig,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneralConfig {
+    /// Maximum length genomic region for which individual alignments are rendered in the GUI.
+    pub max_render_window: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserConfig {
-    styles: StyleConfig,
+    pub styles: StyleConfig,
+    pub general: GeneralConfig,
 }
 
 /// Parse a hex code string to its u32 representation
@@ -63,6 +71,7 @@ fn parse_hex(hex_string: &str) -> Result<u32> {
 pub fn read_user_config() -> Result<UserConfig> {
     // TODO Read from JSON file
     let config = UserConfig {
+        general: GeneralConfig { max_render_window: 10000 },
         styles: StyleConfig {
             fonts: FontConfig { tooltip_font_size: 18 },
             colors: ColorConfig {

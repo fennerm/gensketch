@@ -5,14 +5,15 @@ import type {
   AlignedRead,
   AlignmentStackKind,
   AlignmentTrackData,
-  AlignmentsClearedPayload,
   AlignmentsUpdatedPayload,
   FocusedRegionUpdatedPayload,
   FocusedSequenceUpdatedPayload,
   GenomicInterval,
   GenomicRegion,
   ReferenceSequence,
+  AlignmentsClearedPayload as RegionBufferingPayload,
   SplitData,
+  SplitMap,
   UserConfig,
 } from "@lib/bindings";
 import type { EventListener } from "@lib/types";
@@ -63,9 +64,9 @@ const convertAlignmentStackToBigInt = (alignments: AlignmentStackKind): void => 
   });
 };
 
-export const addAlignmentTrack = ({ bamPath }: { bamPath: string }): Promise<null> => {
+export const addAlignmentTrack = ({ filePath }: { filePath: string }): Promise<null> => {
   return invoke("add_alignment_track", {
-    bamPath,
+    filePath,
   }) as Promise<null>;
 };
 
@@ -83,8 +84,14 @@ export const getUserConfig = (): Promise<UserConfig> => {
   return invoke("get_user_config") as Promise<UserConfig>;
 };
 
-export const getFocusedSequence = (splitId: string): Promise<string | null> => {
-  return invoke("get_focused_sequence", { splitId }) as Promise<string | null>;
+export const getFocusedSequence = (splitId: string): Promise<FocusedSequenceUpdatedPayload> => {
+  return (
+    invoke("get_focused_sequence", { splitId }) as Promise<FocusedSequenceUpdatedPayload>
+  ).then((payload) => {
+    convertCoordToBigInt(payload.focusedRegion?.interval);
+    convertCoordToBigInt(payload.bufferedRegion?.interval);
+    return payload;
+  });
 };
 
 export const getFocusedRegion = (splitId: string): Promise<GenomicRegion> => {
@@ -98,6 +105,19 @@ export const getFocusedRegion = (splitId: string): Promise<GenomicRegion> => {
 
 export const getReferenceSequence = (): Promise<ReferenceSequence> => {
   return invoke("get_reference_sequence") as Promise<ReferenceSequence>;
+};
+
+export const getSplits = (): Promise<SplitData[]> => {
+  return (invoke("get_splits") as Promise<SplitMap>).then((splitMap) => {
+    let splits = [];
+    for (const split of Object.values(splitMap)) {
+      convertCoordToBigInt(split.focusedRegion.interval);
+      convertCoordToBigInt(split.bufferedRegion.interval);
+      convertCoordToBigInt(split.refreshBoundRegion.interval);
+      splits.push(split);
+    }
+    return splits;
+  });
 };
 
 export const getAlignments = ({
@@ -166,7 +186,12 @@ export const listenForUserConfigUpdated: EventListener<UserConfig> = (callback) 
 export const listenForFocusedSequenceUpdated: EventListener<FocusedSequenceUpdatedPayload> = (
   callback
 ) => {
-  return listen("focused-sequence-updated", callback);
+  const wrappedCallback = (event: Event<FocusedSequenceUpdatedPayload>): void => {
+    convertCoordToBigInt(event.payload.focusedRegion?.interval);
+    convertCoordToBigInt(event.payload.bufferedRegion?.interval);
+    callback(event);
+  };
+  return listen("focused-sequence-updated", wrappedCallback);
 };
 
 type AlignmentsUpdatedCallback = (event: Event<AlignmentsUpdatedPayload>) => void;
@@ -194,24 +219,24 @@ export const listenForAlignmentsUpdateQueued: EventListener<AlignmentsUpdatedPay
   return listen("alignments-update-queued", wrappedCallback);
 };
 
-export const listenForAlignmentsCleared: EventListener<AlignmentsClearedPayload> = (callback) => {
-  return listen("alignments-cleared", callback);
+export const listenForRegionBuffering: EventListener<RegionBufferingPayload> = (callback) => {
+  return listen("region-buffering", callback);
 };
 
-export const listenForAlignmentsPanned: EventListener<FocusedRegionUpdatedPayload> = (callback) => {
+export const listenForRegionPanned: EventListener<FocusedRegionUpdatedPayload> = (callback) => {
   const wrappedCallback = (event: Event<FocusedRegionUpdatedPayload>): void => {
     convertCoordToBigInt(event.payload.genomicRegion?.interval);
     callback(event);
   };
-  return listen("alignments-panned", wrappedCallback);
+  return listen("region-panned", wrappedCallback);
 };
 
-export const listenForAlignmentsZoomed: EventListener<FocusedRegionUpdatedPayload> = (callback) => {
+export const listenForRegionZoomed: EventListener<FocusedRegionUpdatedPayload> = (callback) => {
   const wrappedCallback = (event: Event<FocusedRegionUpdatedPayload>): void => {
     convertCoordToBigInt(event.payload.genomicRegion?.interval);
     callback(event);
   };
-  return listen("alignments-zoomed", wrappedCallback);
+  return listen("region-zoomed", wrappedCallback);
 };
 
 export const listenForRefSeqFileUpdated: EventListener<ReferenceSequence> = (callback) => {

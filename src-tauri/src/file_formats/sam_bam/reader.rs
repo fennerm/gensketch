@@ -58,7 +58,7 @@ mod tests {
     use crate::alignments::alignment_reader::AlignmentReader;
     use crate::bio_util::genomic_coordinates::GenomicRegion;
     use crate::file_formats::fasta::reader::FastaReader;
-    use test_util_rs::data::get_test_data_path;
+    use crate::test_util::data::get_test_data_path;
 
     use super::*;
 

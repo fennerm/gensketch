@@ -254,7 +254,7 @@ mod tests {
     use crate::bio_util::genomic_coordinates::{GenomicInterval, GenomicRegion};
     use crate::bio_util::sequence::SequenceView;
     use crate::file_formats::sam_bam::tid::TidMap;
-    use test_util_rs::htslib_records::RecordBuilder;
+    use crate::test_util::htslib_records::RecordBuilder;
 
     use super::*;
 

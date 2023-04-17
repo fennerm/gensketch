@@ -21,12 +21,12 @@ impl_wrapped_uuid!(StackId);
 pub struct AlignmentStack<T> {
     pub id: StackId,
     pub rows: Vec<VecDeque<T>>,
-    pub buffered_region: GenomicRegion,
+    pub buffered_region: Option<GenomicRegion>,
 }
 
 impl<T: Alignment> AlignmentStack<T> {
-    pub fn new(buffered_region: GenomicRegion) -> Self {
-        Self { rows: Vec::new(), id: StackId::new(), buffered_region }
+    pub fn new() -> Self {
+        Self { rows: Vec::new(), id: StackId::new(), buffered_region: None }
     }
 
     fn count_alignments(&self) -> usize {
@@ -38,8 +38,9 @@ impl<T: Alignment> AlignmentStack<T> {
         let num_alignments = self.count_alignments();
         for row in self.rows.iter_mut() {
             row.retain(|alignment| {
-                self.buffered_region.start() <= alignment.end()
-                    && self.buffered_region.end() >= alignment.start()
+                let buffered_region = self.buffered_region.clone().unwrap();
+                buffered_region.start() <= alignment.end()
+                    && buffered_region.end() >= alignment.start()
             })
         }
         self.rows.retain(|row| row.len() > 0);
@@ -92,7 +93,7 @@ impl<T: Alignment> AlignmentStack<T> {
         alignments: A,
         updated_region: &GenomicRegion,
     ) -> Result<()> {
-        self.buffered_region = updated_region.to_owned();
+        self.buffered_region = Some(updated_region.to_owned());
         self.trim();
         let novel_alignments = self.replace_duplicates(alignments.into())?;
         self.extend_stack(novel_alignments)?;
@@ -104,7 +105,7 @@ impl<T: Alignment> AlignmentStack<T> {
     /// This is intended for cases where the user loads a region which is too large to render in the
     /// UI.
     pub fn clear(&mut self, updated_region: &GenomicRegion) {
-        self.buffered_region = updated_region.to_owned();
+        self.buffered_region = Some(updated_region.to_owned());
         self.rows.clear();
     }
 
@@ -204,11 +205,10 @@ mod tests {
             vec![alignments[1].clone()],
         ];
 
-        let init_region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let mut stack = AlignmentStack::new(init_region);
+        let mut stack = AlignmentStack::new();
         stack.update(alignments, &region).unwrap();
         assert_eq!(stack.rows, expected_stack);
-        assert_eq!(stack.buffered_region, region);
+        assert_eq!(stack.buffered_region.unwrap(), region);
     }
 
     #[test]
@@ -233,8 +233,7 @@ mod tests {
         let region1 = GenomicRegion::new("X", 0, 25).unwrap();
         let region2 = GenomicRegion::new("X", 0, 30).unwrap();
 
-        let init_region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let mut stack = AlignmentStack::new(init_region);
+        let mut stack = AlignmentStack::new();
         stack.update(alignments1, &region1).unwrap();
         stack.update(alignments2, &region2).unwrap();
 
@@ -260,8 +259,7 @@ mod tests {
         let region1 = GenomicRegion::new("X", 0, 25).unwrap();
         let region2 = GenomicRegion::new("X", 13, 30).unwrap();
 
-        let init_region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let mut stack = AlignmentStack::new(init_region);
+        let mut stack = AlignmentStack::new();
         stack.update(alignments1, &region1).unwrap();
         stack.update(alignments2, &region2).unwrap();
 
@@ -286,8 +284,7 @@ mod tests {
         let region1 = GenomicRegion::new("X", 0, 25).unwrap();
         let region2 = GenomicRegion::new("X", 0, 30).unwrap();
 
-        let init_region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let mut stack = AlignmentStack::new(init_region);
+        let mut stack = AlignmentStack::new();
         stack.update(alignments1, &region1).unwrap();
         stack.update(alignments2, &region2).unwrap();
 
@@ -305,22 +302,20 @@ mod tests {
         ];
         let region = GenomicRegion::new("X", 0, 25).unwrap();
 
-        let init_region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let mut stack = AlignmentStack::new(init_region);
+        let mut stack = AlignmentStack::new();
         stack.update(alignments, &region).unwrap();
         let region2 = GenomicRegion::new("X", 40, 100).unwrap();
         stack.clear(&region2);
         let expected_stack: Vec<VecDeque<FakeAlignment>> = Vec::new();
         assert_eq!(stack.rows, expected_stack);
-        assert_eq!(stack.buffered_region, region2);
+        assert_eq!(stack.buffered_region.unwrap(), region2);
     }
 
     #[test]
     pub fn test_update_stack_with_empty_input() {
         let alignments: Vec<FakeAlignment> = Vec::new();
 
-        let init_region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let mut stack = AlignmentStack::new(init_region);
+        let mut stack = AlignmentStack::new();
         let region = GenomicRegion::new("X", 0, 25).unwrap();
         stack.update(alignments, &region).unwrap();
         let expected_result: Vec<VecDeque<FakeAlignment>> = Vec::new();

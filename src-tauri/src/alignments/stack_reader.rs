@@ -18,7 +18,7 @@ use crate::file_formats::sam_bam::reader::BamReader;
 #[derive(Debug)]
 pub struct StackReader {
     /// Path of the file to be read.
-    path: PathBuf,
+    pub path: PathBuf,
 
     /// Stacked alignments from the last read operation.
     ///
@@ -30,12 +30,11 @@ pub struct StackReader {
 }
 
 impl StackReader {
-    pub fn new<P: Into<PathBuf>>(path: P, buffered_region: GenomicRegion) -> Result<Self> {
+    pub fn new<P: Into<PathBuf>>(path: P) -> Result<Self> {
         let pathbuf = path.into();
         match get_file_kind(&pathbuf)? {
             FileKind::Bam | FileKind::Sam => {
-                let stack =
-                    AlignmentStackKind::AlignedPairKind(AlignmentStack::new(buffered_region));
+                let stack = AlignmentStackKind::AlignedPairKind(AlignmentStack::new());
                 let reader = AlignmentReaderKind::BamKind(BamReader::new(&pathbuf)?);
                 Ok(Self { path: pathbuf, stack: Arc::new(RwLock::new(stack)), reader })
             }
@@ -44,10 +43,6 @@ impl StackReader {
                 pathbuf.to_string_lossy().to_string()
             )),
         }
-    }
-
-    pub fn path(&self) -> &PathBuf {
-        &self.path
     }
 
     pub fn stack(&self) -> Arc<RwLock<AlignmentStackKind>> {
@@ -82,8 +77,8 @@ impl StackReader {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_util::data::get_test_data_path;
     use pretty_assertions::assert_eq;
-    use test_util_rs::data::get_test_data_path;
 
     use crate::file_formats::fasta::reader::FastaReader;
 
@@ -92,15 +87,13 @@ mod tests {
     #[test]
     pub fn test_initialization_supports_filetypes() {
         let path = get_test_data_path("fake-genome.reads.bam");
-        let region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let reader = StackReader::new(&path, region).unwrap();
-        assert_eq!(reader.path(), &path);
+        let reader = StackReader::new(&path).unwrap();
+        assert_eq!(&reader.path, &path);
     }
 
     fn read_example_stack() -> StackReader {
         let bam_path = get_test_data_path("fake-genome.reads.bam");
-        let region = GenomicRegion::new("X", 0, 1000).unwrap();
-        let mut reader = StackReader::new(&bam_path, region).unwrap();
+        let mut reader = StackReader::new(&bam_path).unwrap();
         let fasta_path = get_test_data_path("fake-genome.fa");
         let mut fasta_reader = FastaReader::new(fasta_path).unwrap();
         let region = GenomicRegion::new("mt", 1000, 1500).unwrap();

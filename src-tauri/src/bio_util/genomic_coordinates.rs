@@ -47,11 +47,6 @@ impl GenomicRegion {
         Self::new(&self.seq_name, expanded_interval.start, expanded_interval.end)
     }
 
-    pub fn contract(&self, by: u64) -> Result<Self> {
-        let contracted_interval = self.interval.contract(by)?;
-        Self::new(&self.seq_name, contracted_interval.start, contracted_interval.end)
-    }
-
     pub fn contains(&self, region: GenomicRegion) -> bool {
         region.seq_name == self.seq_name && self.interval().contains(region.interval())
     }
@@ -88,10 +83,6 @@ impl GenomicInterval {
 
     pub fn expand(&self, by: u64) -> Result<Self> {
         Self::new(self.start.saturating_sub(by), self.end + by)
-    }
-
-    pub fn contract(&self, by: u64) -> Result<Self> {
-        Self::new(self.start + by, self.end - by)
     }
 
     pub fn contains(&self, other: &GenomicInterval) -> bool {

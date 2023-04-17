@@ -2,13 +2,13 @@
 # Dependencies:
 # * BBtools
 # * Samtools
-prefix="fake-genome.reads"
+prefix="fake-genome.tiny"
 output_fastq="test_data/$prefix.fq.gz"
 output_bam="test_data/$prefix.bam"
 unmapped_bam="test_data/$prefix.unmapped.bam"
 bbmap.sh ref="test_data/fake-genome.fa"
 randomreads.sh \
-    reads=10000 \
+    reads=10 \
     length=150 \
     mininsert=350 \
     paired \
