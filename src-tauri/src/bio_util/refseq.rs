@@ -58,6 +58,12 @@ impl ReferenceSequence {
     }
 }
 
+fn dir_contains(dir: &PathBuf, filename: &str) -> bool {
+    let mut path = dir.clone();
+    path.push(filename);
+    path.exists()
+}
+
 /// Get the reference sequence which is loaded automatically on startup
 pub fn get_default_reference() -> Result<ReferenceSequence> {
     // TODO cache path from previous session
@@ -70,7 +76,7 @@ pub fn get_default_reference() -> Result<ReferenceSequence> {
     //     ReferenceSequence::new("HG19".to_owned(), path.to_owned())
     // });
     let mut path = std::env::current_exe()?;
-    for _ in 0..4 {
+    while !dir_contains(&path, "test_data") {
         path.pop();
     }
     path.push("test_data");

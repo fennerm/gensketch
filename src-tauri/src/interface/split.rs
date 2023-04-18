@@ -174,10 +174,6 @@ impl Split {
         let buffered_region = get_buffered_region(&focused_region, seq_length)?;
         let refresh_bound_region = get_refresh_bound_region(&focused_region, seq_length)?;
         match self.check_bounds(&focused_region) {
-            // TODO For now we just always update the buffered sequence when the focused region is
-            // updated. Need to benchmark this and see if its worth queuing the update like we do
-            // for alignments. Downside is that the split would temporarily have its buffered
-            // sequence out of sync with its buffered region.
             BoundState::OutsideBuffered
             | BoundState::OutsideRefreshBound
             | BoundState::WithinRefreshBound => {

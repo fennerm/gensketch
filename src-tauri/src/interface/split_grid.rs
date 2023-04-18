@@ -1,4 +1,3 @@
-use std::ops::Bound;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -259,16 +258,24 @@ impl SplitGrid {
         let buffered_sequence = split.read().buffered_sequence_as_string()?;
         let focused_sequence = split.read().focused_sequence_as_string()?;
 
-        event_emitter.emit(
-            Event::FocusedSequenceUpdated,
-            FocusedSequenceUpdatedPayload {
-                split_id,
-                focused_region: &genomic_region,
-                buffered_region: &split.read().buffered_region,
-                buffered_sequence: &buffered_sequence,
-                focused_sequence: &focused_sequence,
-            },
-        )?;
+        let focused_sequence_update_payload = FocusedSequenceUpdatedPayload {
+            split_id,
+            focused_region: &genomic_region,
+            buffered_region: &split.read().buffered_region,
+            buffered_sequence: &buffered_sequence,
+            focused_sequence: &focused_sequence,
+        };
+        match &bound_state {
+            BoundState::OutsideBuffered | BoundState::OutsideRenderRange => {
+                event_emitter
+                    .emit(Event::FocusedSequenceUpdated, focused_sequence_update_payload)?;
+            }
+            BoundState::OutsideRefreshBound => {
+                event_emitter
+                    .emit(Event::FocusedSequenceUpdateQueued, focused_sequence_update_payload)?;
+            }
+            BoundState::WithinRefreshBound => (),
+        };
 
         // TODO Emit event if error is encountered for a particular track
         self.update_split_alignments(&split_id)?;
