@@ -11,7 +11,7 @@ import {
 } from "@lib/drawing/drawing";
 import { getLength } from "@lib/genomicCoordinates";
 import LOG from "@lib/logger";
-import type { Dimensions, Position } from "@lib/types";
+import type { Dimensions } from "@lib/types";
 import { Viewport } from "pixi-viewport";
 
 const NUC_RECT_SUFFIX = "Rect";

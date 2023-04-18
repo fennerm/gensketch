@@ -5,9 +5,6 @@ jest.unstable_mockModule("@tauri-apps/api", () => ({
     Promise.resolve({ seqName: "X", interval: { start: "1", end: "2" } })
   ),
 }));
-jest.unstable_mockModule("@tauri-apps/api/event", () => ({
-  listen: jest.fn((_event, _handler) => Promise.resolve(() => {})),
-}));
 const tauri = await import("./tauri");
 
 test("Big int conversion of command response", async () => {

@@ -28,7 +28,7 @@ import type { InvokeArgs } from "@tauri-apps/api/tauri";
  */
 const convertBigInts = (obj: any): void => {
   for (const key in obj) {
-    if (!obj.hasOwnProperty(key)) {
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) {
       continue;
     }
     if (typeof obj[key] === "string" && !isNaN(obj[key])) {

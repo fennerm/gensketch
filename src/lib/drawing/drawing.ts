@@ -1,13 +1,12 @@
 import DejaVuSansMonoUrl from "../../assets/DejaVuSansMono.fnt?url";
 import { ValidationError } from "@lib/errors";
 import LOG from "@lib/logger";
-import type { CSSDimensions, Dimensions, Position } from "@lib/types";
+import type { Dimensions, Position } from "@lib/types";
 import { assertIsDefined } from "@lib/types";
 import { range } from "@lib/util";
 import * as PIXI from "pixi.js";
 
 export const DRAW_LETTER_THRESHOLD = 12;
-const DEFAULT_ALIGNMENT_COLOR = 0x969592;
 
 export const loadPixiAssets = (): Promise<any> => {
   LOG.debug("Initializing Pixi.js");

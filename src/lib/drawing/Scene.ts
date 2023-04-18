@@ -1,7 +1,6 @@
 import type { StyleConfig } from "@lib/bindings";
-import { type DrawConfig, DrawPoolGroup, PixiApplication } from "@lib/drawing/drawing";
+import { type DrawPoolGroup, PixiApplication } from "@lib/drawing/drawing";
 import type { Dimensions } from "@lib/types";
-import type * as PIXI from "pixi.js";
 
 export interface SceneParams {
   canvas: HTMLElement;

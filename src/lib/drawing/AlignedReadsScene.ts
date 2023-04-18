@@ -440,6 +440,7 @@ export class AlignedReadsScene extends Scene {
       this.#drawTooltip({ read, pos: { x: event.data.global.x, y: event.data.global.y } });
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const onMouseOut = (event: PIXI.FederatedPointerEvent): void => {
       this.#destroyTooltip();
     };
