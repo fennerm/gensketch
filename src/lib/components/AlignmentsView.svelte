@@ -9,12 +9,13 @@
     listenForRegionZoomed,
   } from "@lib/backend";
   import type {
-    AlignmentsClearedPayload,
     AlignmentsUpdatedPayload,
     FocusedRegionUpdatedPayload,
+    RegionBufferingPayload,
   } from "@lib/bindings";
+  import Spinner from "@lib/components/Spinner.svelte";
   import { AlignedReadsScene } from "@lib/drawing/AlignedReadsScene";
-  import { to0IndexedString } from "@lib/genomicCoordinates";
+  import { to1IndexedString } from "@lib/genomicCoordinates";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
   import { onDestroy, onMount } from "svelte";
@@ -27,6 +28,7 @@
   let canvasHeight: number;
   let canvas: HTMLDivElement;
   let scene: AlignedReadsScene | null = null;
+  let isLoading: boolean = true;
   $: canvasWidth, canvasHeight, handleCanvasResize();
 
   const handleCanvasResize = () => {
@@ -52,6 +54,7 @@
       LOG.debug(
         `Track=${trackId}, split=${splitId} received ${values[0].rows.length} rows of alignments from backend`
       );
+      isLoading = false;
       scene!.setState({ alignments: values[0], focusedRegion: values[1] });
       scene!.draw();
     });
@@ -65,31 +68,34 @@
   const handleAlignmentsUpdated = (payload: AlignmentsUpdatedPayload): void => {
     if (scene !== null && splitId === payload.splitId && trackId === payload.trackId) {
       LOG.debug(
-        `Handling alignments update (focusedRegion=${to0IndexedString(
+        `Handling alignments update (focusedRegion=${to1IndexedString(
           payload.focusedRegion
         )}, rows=${payload.alignments.rows.length})`
       );
+      isLoading = false;
       scene!.setState({ focusedRegion: payload.focusedRegion, alignments: payload.alignments });
     }
   };
 
-  const handleAlignmentsCleared = (payload: AlignmentsClearedPayload): void => {
-    // TODO Loading wheel
+  const handleRegionBuffering = (payload: RegionBufferingPayload): void => {
     if (payload.splitId === splitId) {
+      isLoading = true;
       scene?.clear();
     }
   };
 
   const handleAlignmentsPanned = (payload: FocusedRegionUpdatedPayload): void => {
     if (scene !== null && payload.splitId === splitId) {
-      LOG.debug(`Panning alignments to ${to0IndexedString(payload.genomicRegion)}`);
+      LOG.debug(`Panning alignments to ${to1IndexedString(payload.genomicRegion)}`);
+      isLoading = false;
       scene.setState({ focusedRegion: payload.genomicRegion });
     }
   };
 
   const handleAlignmentsZoomed = (payload: FocusedRegionUpdatedPayload): void => {
     if (payload.splitId === splitId) {
-      LOG.debug(`Zooming alignments to ${to0IndexedString(payload.genomicRegion)}`);
+      LOG.debug(`Zooming alignments to ${to1IndexedString(payload.genomicRegion)}`);
+      isLoading = false;
       scene?.setState({ focusedRegion: payload.genomicRegion });
       scene?.draw();
     }
@@ -101,7 +107,7 @@
   });
 
   listenForAlignmentsUpdateQueued((event) => handleAlignmentsUpdated(event.payload));
-  listenForRegionBuffering((event) => handleAlignmentsCleared(event.payload));
+  listenForRegionBuffering((event) => handleRegionBuffering(event.payload));
   listenForRegionPanned((event) => handleAlignmentsPanned(event.payload));
   listenForRegionZoomed((event) => handleAlignmentsZoomed(event.payload));
 </script>
@@ -112,7 +118,14 @@
   bind:offsetHeight={canvasHeight}
   bind:offsetWidth={canvasWidth}
 >
-  <div class="alignments-canvas" bind:this={canvas} />
+  {#if isLoading}
+    <Spinner />
+  {/if}
+  <div
+    bind:this={canvas}
+    class="alignments-canvas"
+    style={isLoading ? "visibility:hidden" : "visibility:visible"}
+  />
 </div>
 
 <style>

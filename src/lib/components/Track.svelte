@@ -33,10 +33,15 @@
     display: flex;
     flex-direction: column;
     width: 100%;
+  }
+
+  .track-label {
     background-color: var(--color-trackLabelBackground);
     font-size: 12px;
     color: var(--color-secondaryText);
+    width: 100%;
   }
+
   .split-container {
     display: flex;
     flex-direction: row;

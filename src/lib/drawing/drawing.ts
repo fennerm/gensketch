@@ -78,20 +78,14 @@ export class PixiApplication {
   renderer: PIXI.Renderer;
   ticker: PIXI.Ticker;
   stage: PIXI.Container;
-  dim: CSSDimensions;
 
-  constructor() {
-    this.dim = { width: 800, height: 600 };
-    // this.renderer = PIXI.autoDetectRenderer<HTMLCanvasElement>({
-    //   backgroundAlpha: 0,
-    //   antialias: true,
-    //   resolution: window.devicePixelRatio,
-    // });
+  constructor(dim: Dimensions = { width: 800, height: 600 }) {
     this.renderer = new PIXI.Renderer({
       backgroundAlpha: 0,
       antialias: true,
       resolution: window.devicePixelRatio,
     });
+    this.resize(dim);
 
     this.stage = new PIXI.Container();
     this.ticker = new PIXI.Ticker();
@@ -118,7 +112,10 @@ export class PixiApplication {
   };
 
   resize = (dim: Dimensions): void => {
-    this.dim = dim;
+    if (this.renderer.view.style !== undefined) {
+      this.renderer.view.style.width = dim.width + "px";
+      this.renderer.view.style.height = dim.height + "px";
+    }
     this.renderer.resize(dim.width, dim.height);
   };
 

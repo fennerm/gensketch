@@ -20,8 +20,7 @@ export abstract class Scene {
     this.canvas = canvas;
     this.dim = dim;
     this.styles = styles;
-    this.pixiApp = new PixiApplication();
-    this.pixiApp.resize(this.dim);
+    this.pixiApp = new PixiApplication(this.dim);
     this.canvas.appendChild(this.pixiApp.renderer.view as HTMLCanvasElement);
   }
 

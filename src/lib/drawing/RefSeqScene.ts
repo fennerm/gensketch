@@ -9,6 +9,7 @@ import {
   drawRect,
   drawText,
 } from "@lib/drawing/drawing";
+import { getLength } from "@lib/genomicCoordinates";
 import LOG from "@lib/logger";
 import type { Dimensions, Position } from "@lib/types";
 import { Viewport } from "pixi-viewport";
@@ -110,6 +111,14 @@ export class RefSeqScene extends Scene {
     ) {
       return;
     }
+
+    if (getLength(this.focusedRegion.interval) !== BigInt(this.focusedSequence.length)) {
+      this.focusedSequence = this.bufferedSequence.substring(
+        Number(this.focusedRegion.interval.start - this.bufferedRegion.interval.start),
+        Number(this.focusedRegion.interval.end - this.bufferedRegion.interval.start)
+      );
+    }
+
     this.resize({ width: viewportWidth, height: this.dim.height });
     this.nucWidth = this.dim.width / this.focusedSequence.length;
     this.bufferDim = {

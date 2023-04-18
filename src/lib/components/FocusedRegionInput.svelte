@@ -84,7 +84,7 @@
 <style>
   .genomic-region-input {
     width: 300px;
-    height: 50px;
+    height: 25px;
     padding: 0;
   }
 </style>

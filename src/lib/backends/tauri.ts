@@ -11,7 +11,7 @@ import type {
   GenomicInterval,
   GenomicRegion,
   ReferenceSequence,
-  AlignmentsClearedPayload as RegionBufferingPayload,
+  RegionBufferingPayload,
   SplitData,
   SplitMap,
   UserConfig,
@@ -109,7 +109,7 @@ export const getReferenceSequence = (): Promise<ReferenceSequence> => {
 
 export const getSplits = (): Promise<SplitData[]> => {
   return (invoke("get_splits") as Promise<SplitMap>).then((splitMap) => {
-    let splits = [];
+    let splits: SplitData[] = [];
     for (const split of Object.values(splitMap)) {
       convertCoordToBigInt(split.focusedRegion.interval);
       convertCoordToBigInt(split.bufferedRegion.interval);
@@ -183,15 +183,30 @@ export const listenForUserConfigUpdated: EventListener<UserConfig> = (callback) 
   return listen("user-config-updated", callback);
 };
 
-export const listenForFocusedSequenceUpdated: EventListener<FocusedSequenceUpdatedPayload> = (
-  callback
-) => {
+type FocusedSequenceUpdateCallback = (event: Event<FocusedSequenceUpdatedPayload>) => void;
+const wrapFocusedSequenceUpdateCallback = (
+  callback: FocusedSequenceUpdateCallback
+): FocusedSequenceUpdateCallback => {
   const wrappedCallback = (event: Event<FocusedSequenceUpdatedPayload>): void => {
     convertCoordToBigInt(event.payload.focusedRegion?.interval);
     convertCoordToBigInt(event.payload.bufferedRegion?.interval);
     callback(event);
   };
+  return wrappedCallback;
+};
+
+export const listenForFocusedSequenceUpdated: EventListener<FocusedSequenceUpdatedPayload> = (
+  callback
+) => {
+  const wrappedCallback = wrapFocusedSequenceUpdateCallback(callback);
   return listen("focused-sequence-updated", wrappedCallback);
+};
+
+export const listenForFocusedSequenceUpdateQueued: EventListener<FocusedSequenceUpdatedPayload> = (
+  callback
+) => {
+  const wrappedCallback = wrapFocusedSequenceUpdateCallback(callback);
+  return listen("focused-sequence-update-queued", wrappedCallback);
 };
 
 type AlignmentsUpdatedCallback = (event: Event<AlignmentsUpdatedPayload>) => void;

@@ -39,7 +39,7 @@ export interface AlignmentsUpdatedPayload {
   alignments: AlignmentStackKind;
 }
 
-export interface AlignmentsClearedPayload {
+export interface RegionBufferingPayload {
   splitId: string;
 }
 
