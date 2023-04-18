@@ -1,3 +1,4 @@
+use std::ops::Bound;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -227,15 +228,17 @@ impl SplitGrid {
         let prev_region_len = split.read().focused_region.len();
         let seq_length = self.reference.read().get_seq_length(&genomic_region.seq_name)?;
         let bound_state = split.read().check_bounds(&genomic_region);
-        split.write().set_focused_region(genomic_region.clone(), seq_length)?;
 
+        // We notify the frontend of the update before actually making the change on the backend
+        // Need to make sure that the split is write locked until the frontend and backend are back
+        // in sync.
+        let mut split_write_lock = split.write();
         let focused_region_update_payload =
             FocusedRegionUpdatedPayload { split_id: &split_id, genomic_region: &genomic_region };
-
         event_emitter.emit(Event::FocusedRegionUpdated, &focused_region_update_payload)?;
 
-        // If the frontend already has the necessary alignments cached we can just inform it that a zoom
-        // or pan is necessay.
+        // If the frontend already has the necessary alignments cached we can just inform it that a
+        // zoom or pan is necessay.
         match &bound_state {
             BoundState::WithinRefreshBound | BoundState::OutsideRefreshBound => {
                 if genomic_region.len() == prev_region_len {
@@ -244,8 +247,15 @@ impl SplitGrid {
                     event_emitter.emit(Event::RegionZoomed, &focused_region_update_payload)?;
                 }
             }
+            BoundState::OutsideBuffered => {
+                event_emitter.emit(Event::RegionBuffering, RegionBufferingPayload { split_id })?;
+            }
             _ => (),
         }
+
+        split_write_lock.set_focused_region(genomic_region.clone(), seq_length)?;
+        drop(split_write_lock);
+
         let buffered_sequence = split.read().buffered_sequence_as_string()?;
         let focused_sequence = split.read().focused_sequence_as_string()?;
 
@@ -260,10 +270,7 @@ impl SplitGrid {
             },
         )?;
 
-        if let BoundState::OutsideBuffered = &bound_state {
-            event_emitter.emit(Event::RegionBuffering, RegionBufferingPayload { split_id })?;
-        };
-
+        // TODO Emit event if error is encountered for a particular track
         self.update_split_alignments(&split_id)?;
 
         for entry in self.tracks.iter() {
@@ -483,7 +490,7 @@ mod tests {
             .unwrap();
 
         test_state.event_emitter.pop_until(&Event::RegionBuffering);
-        let payload = test_state.event_emitter.pop_event(&Event::AlignmentsUpdated);
+        let payload = test_state.event_emitter.pop_until(&Event::AlignmentsUpdated);
         assert_eq!(
             payload.get("focusedRegion").unwrap(),
             &serde_json::to_value(&new_focused_region).unwrap()
