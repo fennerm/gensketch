@@ -279,7 +279,6 @@ impl SplitGrid {
 
         // TODO Emit event if error is encountered for a particular track
         self.update_split_alignments(&split_id)?;
-        log::error!("{}", end - start);
 
         for entry in self.tracks.iter() {
             let track_id = entry.key().clone();
