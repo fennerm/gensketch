@@ -1,6 +1,5 @@
-import Pino from "pino";
+import { Logger } from "@lib/backend";
 
-const LEVEL = process.env.NODE_ENV === "production" ? "warning" : "debug";
+const LOG = new Logger();
 
-const LOG = Pino({ name: "gensketch", level: LEVEL });
 export default LOG;

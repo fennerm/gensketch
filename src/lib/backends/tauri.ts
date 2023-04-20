@@ -19,6 +19,12 @@ import { open } from "@tauri-apps/api/dialog";
 import type { Event, EventCallback, EventName, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import type { InvokeArgs } from "@tauri-apps/api/tauri";
+import {
+  debug as logDebug,
+  error as logError,
+  info as logInfo,
+  warn as logWarn,
+} from "tauri-plugin-log-api";
 
 /**
  * Iterates through every key/value pair in an object and converts any strings which are valid ints
@@ -201,3 +207,21 @@ export const openFileDialog = async (): Promise<string[] | null> => {
   }
   return selectedFiles;
 };
+
+export class Logger {
+  debug = (msg: string): void => {
+    logDebug(msg);
+  };
+
+  info = (msg: string): void => {
+    logInfo(msg);
+  };
+
+  warn = (msg: string): void => {
+    logWarn(msg);
+  };
+
+  error = (msg: string): void => {
+    logError(msg);
+  };
+}
