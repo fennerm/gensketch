@@ -1,6 +1,6 @@
 import { sveltekit } from "@sveltejs/kit/vite";
-import { defineConfig } from "vite";
 import path from "path";
+import { defineConfig } from "vite";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -17,7 +17,7 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_"],
   build: {
     // Tauri supports es2021
-    target: ["es2021", "chrome100", "safari13"],
+    target: ["es2021", "chrome100", "safari14"],
     // don't minify for debug builds
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     // produce sourcemaps for debug builds
@@ -26,7 +26,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // Using @lib instead of the default $lib because it works better with VS code auto import
-      '@lib': path.resolve('./src/lib')
-    }
-  }
+      "@lib": path.resolve("./src/lib"),
+    },
+  },
 });

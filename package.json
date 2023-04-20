@@ -17,7 +17,8 @@
         "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
         "dev": "vite",
         "preview": "vite preview",
-        "tauri": "RUST_LOG=debug tauri",
+        "tauri": "RUST_BACKTRACE=1 RUST_LOG=debug tauri",
+        "tauri-build": "tauri build",
         "tauri-dev": "RUST_BACKTRACE=1 RUST_LOG=debug tauri dev",
         "typecov": "type-coverage --strict --detail --ignore-catch | grep -v error",
         "test-frontend": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config package.json",
@@ -25,11 +26,12 @@
         "test": "npm run test-backend; npm run test-frontend"
     },
     "dependencies": {
+        "@pixi/layers": "^2.0.1",
         "@tauri-apps/api": "^1.2.0",
         "bigint-polyfill": "^0.1.0",
-        "pino": "^8.7.0",
         "pixi-viewport": "^5.0.1",
         "pixi.js": "^7.2.3",
+        "tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
         "uuid": "^9.0.0"
     },
     "devDependencies": {
@@ -53,7 +55,6 @@
         "eslint-plugin-node": "^11.1.0",
         "eslint-plugin-svelte": "^2.21.0",
         "jest": "^29.5.0",
-        "pino-pretty": "^9.1.1",
         "prettier": "^2.7.1",
         "prettier-plugin-svelte": "^2.9.0",
         "svelte": "^3.54.0",
