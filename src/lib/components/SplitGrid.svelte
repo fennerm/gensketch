@@ -25,9 +25,8 @@
   let assetsLoaded: boolean = false;
 
   onMount(async () => {
-    loadPixiAssets().then(() => {
-      assetsLoaded = true;
-    });
+    loadPixiAssets();
+    assetsLoaded = true;
     getSplits().then((splits) => {
       splits.map((split) => handleNewSplit(split));
     });
@@ -183,6 +182,7 @@
       {handleHorizontalDividerDrag}
       {handleVerticalDividerDrag}
     />
+    <!-- TODO add loading wheel while assets loading-->
   {/if}
 </div>
 

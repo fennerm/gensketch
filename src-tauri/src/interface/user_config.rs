@@ -31,6 +31,8 @@ pub struct ColorConfig {
     pub track_label_background: u32,
     pub secondary_text: u32,
     pub nucleotide_colors: NucleotideColorConfig,
+    pub deletion: u32,
+    pub insertion: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -98,6 +100,8 @@ pub fn read_user_config() -> Result<UserConfig> {
                     v: parse_hex("808080")?,
                     gap: parse_hex("808080")?,
                 },
+                deletion: parse_hex("#222222")?,
+                insertion: parse_hex("#3019a6")?,
             },
         },
     };

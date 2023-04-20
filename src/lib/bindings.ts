@@ -77,11 +77,30 @@ export interface PairedReads {
   interval: GenomicInterval;
 }
 
-export type SequenceDiff =
-  | { type: "mismatch"; interval: GenomicInterval; sequence: string }
-  | { type: "ins"; interval: GenomicInterval; sequence: string }
-  | { type: "del"; interval: GenomicInterval }
-  | { type: "softClip"; interval: GenomicInterval; sequence: string };
+export type Mismatch = {
+  type: "mismatch";
+  interval: GenomicInterval;
+  sequence: string;
+};
+
+export type Insertion = {
+  type: "ins";
+  interval: GenomicInterval;
+  sequence: string;
+};
+
+export type Deletion = {
+  type: "del";
+  interval: GenomicInterval;
+};
+
+export type SoftClip = {
+  type: "softClip";
+  interval: GenomicInterval;
+  sequence: string;
+};
+
+export type SequenceDiff = Mismatch | Insertion | Deletion | SoftClip;
 
 export interface SplitData {
   id: string;
@@ -124,6 +143,8 @@ export interface ColorConfig {
   trackLabelBackground: number;
   secondaryText: number;
   nucleotideColors: NucleotideColorConfig;
+  deletion: number;
+  inseertion: number;
 }
 
 export interface FontConfig {

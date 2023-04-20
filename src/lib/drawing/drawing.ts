@@ -1,16 +1,19 @@
-import DejaVuSansMonoUrl from "../../assets/DejaVuSansMono.fnt?url";
+import DejaVuSansMonoFntContents from "../../assets/DejaVuSansMono.fnt?raw";
+import DejaVuSansMonoPngUrl from "../../assets/DejaVuSansMono_0.png?url";
 import { ValidationError } from "@lib/errors";
 import LOG from "@lib/logger";
 import type { Dimensions, Position } from "@lib/types";
 import { assertIsDefined } from "@lib/types";
 import { range } from "@lib/util";
+import { type Group as LayerGroup, Stage as LayeredStage } from "@pixi/layers";
 import * as PIXI from "pixi.js";
 
 export const DRAW_LETTER_THRESHOLD = 12;
 
-export const loadPixiAssets = (): Promise<any> => {
+export const loadPixiAssets = (): void => {
   LOG.debug("Initializing Pixi.js");
-  return PIXI.Assets.load(DejaVuSansMonoUrl);
+  const pngTexture = PIXI.Texture.from(DejaVuSansMonoPngUrl);
+  PIXI.BitmapFont.install(DejaVuSansMonoFntContents, pngTexture);
 };
 
 export const isBitmapText = (obj: any): obj is PIXI.BitmapText => {
@@ -25,19 +28,21 @@ export const updateIfChanged = ({
   pos,
   dim,
   fontSize,
+  text,
   visible,
   onMouseOver,
   onMouseOut,
-  zIndex,
+  layer,
 }: {
   container: PIXI.Container;
   readonly pos?: Position;
   readonly dim?: Dimensions;
   fontSize?: number;
+  text?: string;
   visible?: boolean;
   onMouseOver?: (event: PIXI.FederatedPointerEvent) => void;
   onMouseOut?: (event: PIXI.FederatedPointerEvent) => void;
-  zIndex?: number;
+  layer?: LayerGroup;
 }): void => {
   if (pos !== undefined && pos.x !== container.x) {
     container.x = pos.x;
@@ -51,21 +56,25 @@ export const updateIfChanged = ({
   if (dim !== undefined && dim.height !== container.height) {
     container.height = dim.height;
   }
-  if (fontSize !== undefined && isBitmapText(container) && fontSize !== container.fontSize) {
-    container.fontSize = fontSize;
-  }
   if (visible !== undefined && container.visible !== visible) {
     container.visible = visible;
   }
   if (onMouseOver !== undefined) {
     container.addEventListener("mouseover", onMouseOver);
   }
-
   if (onMouseOut !== undefined) {
     container.addEventListener("mouseout", onMouseOut);
   }
-  if (zIndex !== undefined && zIndex !== container.zIndex) {
-    container.zIndex = zIndex;
+  if (layer !== undefined) {
+    container.parentGroup = layer;
+  }
+  if (isBitmapText(container)) {
+    if (fontSize !== undefined && fontSize !== container.fontSize) {
+      container.fontSize = fontSize;
+    }
+    if (text !== undefined && text !== container.text) {
+      container.text = text;
+    }
   }
 };
 
@@ -78,7 +87,13 @@ export class PixiApplication {
   ticker: PIXI.Ticker;
   stage: PIXI.Container;
 
-  constructor(dim: Dimensions = { width: 800, height: 600 }) {
+  constructor({
+    dim = { width: 800, height: 600 },
+    layered = false,
+  }: {
+    dim: Dimensions;
+    layered: boolean;
+  }) {
     this.renderer = new PIXI.Renderer({
       backgroundAlpha: 0,
       antialias: true,
@@ -86,7 +101,12 @@ export class PixiApplication {
     });
     this.resize(dim);
 
-    this.stage = new PIXI.Container();
+    if (layered) {
+      this.stage = new LayeredStage();
+      this.stage.sortableChildren = true;
+    } else {
+      this.stage = new PIXI.Container();
+    }
     this.ticker = new PIXI.Ticker();
 
     this.ticker.add(() => {
@@ -134,6 +154,7 @@ export interface TaggedDrawObject {
 export interface DrawArgs {
   pos?: Position;
   dim?: Dimensions;
+  text?: string;
   fontSize?: number;
   onMouseOver?: (event: PIXI.FederatedPointerEvent) => void;
   onMouseOut?: (event: PIXI.FederatedPointerEvent) => void;
@@ -192,7 +213,7 @@ export class DrawPool {
     this.poolsize = newPoolsize;
   };
 
-  draw = ({ pos, dim, fontSize, onMouseOver, onMouseOut }: DrawArgs): TaggedDrawObject => {
+  draw = (drawArgs: DrawArgs): TaggedDrawObject => {
     if (this.objects.length == 0) {
       this.expandPool(this.poolsize + this.stepSize);
     }
@@ -202,12 +223,8 @@ export class DrawPool {
     taggedObject.object.removeAllListeners();
     updateIfChanged({
       container: taggedObject.object,
-      pos,
-      dim,
-      fontSize,
       visible: true,
-      onMouseOut,
-      onMouseOver,
+      ...drawArgs,
     });
 
     this.activeObjects.set(taggedObject.id, taggedObject.object);
@@ -287,9 +304,11 @@ export type TriangleVertices = [Position, Position, Position];
 export const drawTriangle = ({
   vertices,
   color,
+  layer,
 }: {
   readonly vertices: TriangleVertices;
   color: number;
+  layer?: LayerGroup;
 }): PIXI.Graphics => {
   const triangle = new PIXI.Graphics();
   const lastVertex = vertices[vertices.length - 1];
@@ -298,25 +317,26 @@ export const drawTriangle = ({
     triangle.lineTo(vertex.x, vertex.y);
   });
   triangle.endFill();
+  if (layer !== undefined) {
+    triangle.parentGroup = layer;
+  }
   return triangle;
 };
 
 export const drawRect = ({
   color,
-  pos,
-  dim,
+  pos = { x: 0, y: 0 },
+  dim = { width: 10, height: 5 },
   interactive = false,
-  zIndex,
+  layer,
 }: {
   color?: number;
   pos?: Position;
   dim?: Dimensions;
   interactive?: boolean;
-  zIndex?: number;
+  layer?: LayerGroup;
 }): PIXI.Sprite => {
   const rect = PIXI.Sprite.from(PIXI.Texture.WHITE);
-  dim = dim === undefined ? { width: 10, height: 5 } : dim;
-  pos = pos === undefined ? { x: 0, y: 0 } : pos;
   rect.width = dim.width;
   rect.height = dim.height;
   rect.interactive = interactive;
@@ -324,28 +344,31 @@ export const drawRect = ({
   if (color !== undefined) {
     rect.tint = color;
   }
-  if (zIndex !== undefined) {
-    rect.zIndex = zIndex;
+  if (layer !== undefined) {
+    rect.parentGroup = layer;
   }
   return rect;
 };
 
 export const drawText = ({
-  content,
+  text,
+  pos = { x: 0, y: 0 },
   style,
-  zIndex,
+  layer,
 }: {
-  content: string;
+  text: string;
+  pos?: Position;
   style?: Partial<PIXI.IBitmapTextStyle>;
-  zIndex?: number;
+  layer?: LayerGroup;
 }): PIXI.BitmapText => {
   style = style === undefined ? {} : style;
   style.fontSize = style.fontSize === undefined ? 20 : style.fontSize;
   style.fontName = style.fontName === undefined ? "DejaVu Sans Mono" : style.fontName;
   style.align = style.align === undefined ? "center" : style.align;
-  const text = new PIXI.BitmapText(content, style);
-  if (zIndex !== undefined) {
-    text.zIndex = zIndex;
+  const textObj = new PIXI.BitmapText(text, style);
+  if (layer !== undefined) {
+    textObj.parentGroup = layer;
   }
-  return text;
+  textObj.position.set(pos.x, pos.y);
+  return textObj;
 };
