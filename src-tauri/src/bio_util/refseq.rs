@@ -87,7 +87,7 @@ pub fn get_default_reference() -> Result<ReferenceSequence> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::data::get_test_data_path;
+    use crate::paths::get_test_data_path;
 
     use super::*;
 

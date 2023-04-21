@@ -1,6 +1,8 @@
+use std::collections::VecDeque;
 use std::fmt;
 
 use anyhow::Result;
+use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
@@ -8,6 +10,7 @@ use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::file_formats::enums::AlignmentStackKind;
 use crate::interface::split::SplitId;
 use crate::interface::track::TrackId;
+use crate::util::same_enum_variant;
 
 // Truncate events to this length when logging
 const MAX_LOGGED_EVENT_LEN: usize = 1000;
@@ -74,6 +77,46 @@ impl<'a> EmitEvent for EventEmitter<'a> {
             }
             log::debug!("{} event {}", &event_name, json);
         }
+        Ok(())
+    }
+}
+
+fn parse_object(json: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+    if let serde_json::value::Value::Object(payload) = json {
+        payload
+    } else {
+        panic!("Unexpected payload type")
+    }
+}
+
+pub struct StubEventEmitter {
+    pub calls: Mutex<VecDeque<(Event, serde_json::Value)>>,
+}
+
+impl StubEventEmitter {
+    pub fn new() -> Self {
+        Self { calls: Mutex::new(VecDeque::new()) }
+    }
+
+    pub fn pop_event(&self, event_type: &Event) -> serde_json::Map<String, serde_json::Value> {
+        let (event, payload) = self.calls.lock().pop_front().unwrap();
+        assert!(same_enum_variant(&event, event_type));
+        parse_object(payload)
+    }
+
+    pub fn pop_until(&self, event_type: &Event) -> serde_json::Map<String, serde_json::Value> {
+        loop {
+            let (event, payload) = self.calls.lock().pop_front().unwrap();
+            if same_enum_variant(&event, event_type) {
+                return parse_object(payload);
+            }
+        }
+    }
+}
+
+impl EmitEvent for StubEventEmitter {
+    fn emit<S: Serialize + Clone>(&self, event: Event, payload: S) -> Result<()> {
+        self.calls.lock().push_back((event, serde_json::to_value(&payload)?));
         Ok(())
     }
 }

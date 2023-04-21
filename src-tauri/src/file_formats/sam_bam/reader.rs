@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Result};
 use parking_lot::Mutex;
+use rayon::prelude::*;
 use rust_htslib::bam;
-use rust_htslib::bam::record::Record;
 use rust_htslib::bam::Read;
 
 use crate::alignments::alignment_reader::AlignmentReader;
@@ -37,16 +37,16 @@ impl AlignmentReader for BamReader {
         }
         let mut reader = self.reader.lock();
         reader.fetch((region.seq_name.as_str(), region.start(), region.end()))?;
-        let mut record = Record::new();
-        let mut alignments = Vec::new();
-        loop {
-            if let None = reader.read(&mut record) {
-                break;
-            }
-            // TODO Error in single read shouldn't halt entire operation
-            let alignment = AlignedRead::from_record(&record, refseq, &self.tid_map)?;
-            alignments.push(alignment);
-        }
+        let alignments = reader
+            .records()
+            .collect::<std::result::Result<Vec<_>, _>>()?
+            .par_iter()
+            .map(|record| {
+                let alignment = AlignedRead::from_record(&record, refseq, &self.tid_map)?;
+                Ok(alignment)
+            })
+            .collect::<Result<_>>()?;
+
         Ok(alignments)
     }
 }
@@ -58,7 +58,7 @@ mod tests {
     use crate::alignments::alignment_reader::AlignmentReader;
     use crate::bio_util::genomic_coordinates::GenomicRegion;
     use crate::file_formats::fasta::reader::FastaReader;
-    use crate::test_util::data::get_test_data_path;
+    use crate::paths::get_test_data_path;
 
     use super::*;
 

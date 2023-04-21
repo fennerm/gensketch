@@ -5,6 +5,7 @@ use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use rayon::prelude::*;
+use std::time::{Duration, Instant};
 
 use crate::alignments::stack_reader::StackReader;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
@@ -278,7 +279,11 @@ impl SplitGrid {
         };
 
         // TODO Emit event if error is encountered for a particular track
+        let start = Instant::now();
         self.update_split_alignments(&split_id)?;
+        let duration = start.elapsed();
+
+        log::debug!("Time elapsed in update_split_alignments() is: {:?}", duration);
 
         for entry in self.tracks.iter() {
             let track_id = entry.key().clone();
@@ -308,9 +313,9 @@ impl SplitGrid {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_util::data::get_test_data_path;
+    use crate::paths::get_test_data_path;
 
-    use crate::test_util::mocks::MockEventEmitter;
+    use crate::interface::events::StubEventEmitter;
 
     use super::*;
 
@@ -322,7 +327,7 @@ mod tests {
     }
 
     struct GridTestState {
-        pub event_emitter: MockEventEmitter,
+        pub event_emitter: StubEventEmitter,
         pub max_render_window: u64,
         pub bam_path: PathBuf,
         pub grid: SplitGrid,
@@ -336,7 +341,7 @@ mod tests {
     fn init_basic_split_grid() -> GridTestState {
         let max_render_window = 10000;
         let grid = SplitGrid::new(max_render_window).unwrap();
-        let event_emitter = MockEventEmitter::new();
+        let event_emitter = StubEventEmitter::new();
         let bam_path = get_test_data_path("fake-genome.tiny.bam");
         let track_id = grid.add_track(&event_emitter, bam_path.clone()).unwrap();
         let split_id = grid.get_split_ids()[0];

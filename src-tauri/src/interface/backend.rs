@@ -17,4 +17,26 @@ impl Backend {
         let split_grid = RwLock::new(SplitGrid::new(max_render_window)?);
         Ok(Self { user_config, split_grid })
     }
+
+    pub fn initialize(&self) -> Result<()> {
+        log::info!("Initializing backend");
+        let max_render_window = self.user_config.read().general.max_render_window;
+        *self.split_grid.write() = SplitGrid::new(max_render_window)?;
+        // emit_event(&app, Event::UserConfigUpdated, &*state.user_config.read())?;
+        // let mut refseq = state.reference_sequence.write();
+        // *refseq = get_default_reference()?;
+        // let mut splits = state.splits.write();
+        // *splits = SplitList::new();
+        // let mut tracks = state.tracks.write();
+        // *tracks = TrackList::new();
+        // let mut alignments = state.alignments.write();
+        // *alignments = AlignmentsManager::new();
+        // drop(splits);
+        // drop(tracks);
+        // emit_event(&app, Event::RefSeqFileUpdated, &*refseq)?;
+        // drop(refseq);
+        // emit_event(&app, Event::SplitGridCleared, {})?;
+        log::info!("Backend initialization complete");
+        Ok(())
+    }
 }

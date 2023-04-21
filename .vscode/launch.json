@@ -11,7 +11,7 @@
       "cargo": {
         "args": ["build", "--manifest-path=./src-tauri/Cargo.toml", "--no-default-features"]
       },
-      "env": { "RUST_BACKTRACE": "1" },
+      "env": { "RUST_BACKTRACE": "1", "RUST_LOG": "debug" },
       "preLaunchTask": "ui:dev"
     },
     {

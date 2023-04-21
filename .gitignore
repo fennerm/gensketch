@@ -4,7 +4,8 @@ build
 .svelte-kit
 package
 dist
-target/
+target
+src-tauri/target/
 dist-ssr
 *.local
 .env

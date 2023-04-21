@@ -79,25 +79,8 @@ pub fn get_splits(state: tauri::State<Backend>) -> CommandResult<serde_json::Val
 }
 
 #[tauri::command(async)]
-pub fn initialize(app: tauri::AppHandle, state: tauri::State<Backend>) -> CommandResult<()> {
-    log::info!("Initializing backend");
-    let max_render_window = state.user_config.read().general.max_render_window;
-    *state.split_grid.write() = SplitGrid::new(max_render_window)?;
-    // emit_event(&app, Event::UserConfigUpdated, &*state.user_config.read())?;
-    // let mut refseq = state.reference_sequence.write();
-    // *refseq = get_default_reference()?;
-    // let mut splits = state.splits.write();
-    // *splits = SplitList::new();
-    // let mut tracks = state.tracks.write();
-    // *tracks = TrackList::new();
-    // let mut alignments = state.alignments.write();
-    // *alignments = AlignmentsManager::new();
-    // drop(splits);
-    // drop(tracks);
-    // emit_event(&app, Event::RefSeqFileUpdated, &*refseq)?;
-    // drop(refseq);
-    // emit_event(&app, Event::SplitGridCleared, {})?;
-    log::info!("Backend initialization complete");
+pub fn initialize(state: tauri::State<Backend>) -> CommandResult<()> {
+    state.initialize()?;
     Ok(())
 }
 

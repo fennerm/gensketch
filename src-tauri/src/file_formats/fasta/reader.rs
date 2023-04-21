@@ -43,7 +43,7 @@ impl FastaReader {
 mod tests {
     use super::*;
     use crate::bio_util::genomic_coordinates::GenomicRegion;
-    use crate::test_util::data::get_test_data_path;
+    use crate::paths::get_test_data_path;
 
     #[test]
     fn test_reading() {
