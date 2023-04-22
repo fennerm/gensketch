@@ -79,8 +79,9 @@ pub fn get_splits(state: tauri::State<Backend>) -> CommandResult<serde_json::Val
 }
 
 #[tauri::command(async)]
-pub fn initialize(state: tauri::State<Backend>) -> CommandResult<()> {
-    state.initialize()?;
+pub fn initialize(app: tauri::AppHandle, state: tauri::State<Backend>) -> CommandResult<()> {
+    let event_emitter = EventEmitter::new(&app);
+    state.initialize(&event_emitter)?;
     Ok(())
 }
 

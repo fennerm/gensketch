@@ -1,6 +1,7 @@
 use anyhow::Result;
 use parking_lot::RwLock;
 
+use crate::interface::events::{EmitEvent, Event};
 use crate::interface::split_grid::SplitGrid;
 use crate::interface::user_config::{read_user_config, UserConfig};
 
@@ -18,11 +19,11 @@ impl Backend {
         Ok(Self { user_config, split_grid })
     }
 
-    pub fn initialize(&self) -> Result<()> {
+    pub fn initialize<E: EmitEvent>(&self, event_emitter: &E) -> Result<()> {
         log::info!("Initializing backend");
         let max_render_window = self.user_config.read().general.max_render_window;
         *self.split_grid.write() = SplitGrid::new(max_render_window)?;
-        // emit_event(&app, Event::UserConfigUpdated, &*state.user_config.read())?;
+        event_emitter.emit(Event::UserConfigUpdated, &*self.user_config.read())?;
         // let mut refseq = state.reference_sequence.write();
         // *refseq = get_default_reference()?;
         // let mut splits = state.splits.write();

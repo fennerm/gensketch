@@ -12,7 +12,7 @@
   const updateTheme = (styles: StyleConfig) => {
     for (let [prop, color] of Object.entries(styles.colors)) {
       let varString = `--color-${prop}`;
-      document.documentElement.style.setProperty(varString, color);
+      document.documentElement.style.setProperty(varString, `#${color.toString(16)}`);
     }
     LOG.debug("Received updated user config, refreshing theme");
   };
