@@ -56,6 +56,7 @@ pub struct IterAlignedPairsCigar {
     remaining_match_bp: u32,
     remaining_ins_bp: u32,
     remaining_del_bp: u32,
+    remaining_softclip_bp: u32,
     cigar_index: usize,
 }
 
@@ -68,6 +69,7 @@ impl IterAlignedPairsCigar {
             remaining_match_bp: 0,
             remaining_ins_bp: 0,
             remaining_del_bp: 0,
+            remaining_softclip_bp: 0,
             cigar_index: 0,
         }
     }
@@ -94,6 +96,19 @@ impl Iterator for IterAlignedPairsCigar {
                 self.cigar[self.cigar_index - 1],
                 Some(self.read_pos as usize - 1),
                 None,
+            ));
+        }
+        if self.remaining_softclip_bp > 0 {
+            // Technically per the SAM spec a softclipped base shouldn't increment the
+            // genome position. But for our purposes its useful to increment so that
+            // we know where to render softclips on reads.
+            self.remaining_softclip_bp -= 1;
+            self.genome_pos += 1;
+            self.read_pos += 1;
+            return Some((
+                self.cigar[self.cigar_index - 1],
+                Some(self.read_pos as usize - 1),
+                Some(self.genome_pos as u64 - 1),
             ));
         }
         if self.remaining_del_bp > 0 {
@@ -127,12 +142,9 @@ impl Iterator for IterAlignedPairsCigar {
                     return Some((entry, Some(self.read_pos as usize - 1), None));
                 }
                 Cigar::SoftClip(len) => {
-                    // Technically per the SAM spec a softclipped base shouldn't increment the
-                    // genome position. But for our purposes its useful to increment so that
-                    // we know where to render softclips on reads.
                     self.genome_pos += 1;
                     self.read_pos += 1;
-                    self.remaining_ins_bp = len - 1;
+                    self.remaining_softclip_bp = len - 1;
                     self.cigar_index += 1;
                     return Some((
                         entry,

@@ -8,6 +8,7 @@ import type {
   AlignmentStackKind,
   Deletion,
   GenomicRegion,
+  Insertion,
   PairedReads,
   SoftClip,
   StyleConfig,
@@ -37,6 +38,8 @@ const REVERSE_READ_CAP_POOL = "reverseReadCap";
 const DELETION_POOL = "deletion";
 const DELETION_LABEL_POOL = "deletionLabel";
 const DELETION_LABEL_MASK_POOL = "deletionLabelMask";
+const INSERTION_POOL = "insertion";
+const INSERTION_LABEL_POOL = "insertionLabel";
 const NUC_RECT_SUFFIX = "SnvRect";
 const NUC_TEXT_SUFFIX = "SnvText";
 const DEFAULT_READ_HEIGHT = 10;
@@ -46,10 +49,15 @@ const DEFAULT_CAP_WIDTH = DEFAULT_NUC_WIDTH;
 const DEFAULT_PAIR_LINE_HEIGHT = 1;
 const DEFAULT_DELETION_LINE_HEIGHT = 1;
 const DEFAULT_DELETION_LABEL_MASK_WIDTH = 2 * DEFAULT_NUC_WIDTH;
+const DEFAULT_INSERTION_WIDTH = 0.75;
 const DEFAULT_PAIR_LINE_WIDTH = 100;
 const DEFAULT_DELETION_WIDTH = DEFAULT_NUC_WIDTH;
 const DEFAULT_DELETION_LABEL_FONTSIZE = 14;
+const DEFAULT_INSERTION_LABEL_FONTSIZE = DEFAULT_DELETION_LABEL_FONTSIZE;
 const DELETION_LABEL_PADDING = 2;
+const INSERTION_LABEL_PADDING = 1;
+// Character width as a fraction of the font size
+const FONT_CHAR_WIDTH = 0.6;
 
 const MIN_DELETION_LENGTH_FOR_LABEL = 5;
 
@@ -420,7 +428,27 @@ export class AlignedReadsScene extends Scene {
           lineLayer: this.layers[4],
           color: this.styles.colors.deletion,
         }),
-      poolsize: 500,
+      poolsize: 100,
+    };
+    drawConfig[INSERTION_POOL] = {
+      drawFn: () =>
+        drawRect({
+          color: this.styles.colors.insertion,
+          layer: this.layers[3],
+          dim: { width: DEFAULT_INSERTION_WIDTH * DEFAULT_NUC_WIDTH, height: DEFAULT_READ_HEIGHT },
+        }),
+      poolsize: 100,
+    };
+    drawConfig[INSERTION_LABEL_POOL] = {
+      drawFn: () =>
+        drawText({
+          text: "1",
+          style: {
+            fontSize: DEFAULT_INSERTION_LABEL_FONTSIZE,
+            tint: this.styles.colors.background,
+          },
+        }),
+      poolsize: 100,
     };
     drawConfig[DELETION_LABEL_MASK_POOL] = {
       drawFn: () =>
@@ -429,7 +457,7 @@ export class AlignedReadsScene extends Scene {
           dim: { width: DEFAULT_DELETION_LABEL_MASK_WIDTH, height: DEFAULT_READ_HEIGHT },
           layer: this.layers[5],
         }),
-      poolsize: 150,
+      poolsize: 50,
     };
     drawConfig[DELETION_LABEL_POOL] = {
       drawFn: () =>
@@ -502,8 +530,7 @@ export class AlignedReadsScene extends Scene {
 
     const labelText = String(deletionLength);
     const fontSize = this.readHeight - 2;
-    // TODO Figure out the actual char width for dejavu sans mono (including spacing)
-    const charWidth = 0.6 * fontSize;
+    const charWidth = FONT_CHAR_WIDTH * fontSize;
     const deletionPxWidth = deletionLength * this.nucWidth;
     const labelPxWidth = charWidth * labelText.length;
     const labelPos = {
@@ -517,6 +544,29 @@ export class AlignedReadsScene extends Scene {
     this.drawPool.draw(DELETION_LABEL_POOL, {
       text: labelText,
       pos: { x: labelPos.x + DELETION_LABEL_PADDING, y: labelPos.y },
+      fontSize,
+    });
+  };
+
+  #displayInsertion = ({
+    diff,
+    pos,
+    height,
+  }: {
+    diff: Insertion;
+    pos: Position;
+    height: number;
+  }): void => {
+    this.drawPool.draw(INSERTION_POOL, {
+      pos,
+      dim: { width: DEFAULT_INSERTION_WIDTH * this.nucWidth, height },
+    });
+    const insertionLength = diff.sequence.length;
+    const labelText = String(insertionLength);
+    const fontSize = Math.floor((this.nucWidth - 2 * INSERTION_LABEL_PADDING) / FONT_CHAR_WIDTH);
+    this.drawPool.draw(INSERTION_LABEL_POOL, {
+      text: labelText,
+      pos: { x: pos.x + INSERTION_LABEL_PADDING, y: pos.y },
       fontSize,
     });
   };
@@ -555,11 +605,13 @@ export class AlignedReadsScene extends Scene {
           break;
         }
         case "ins":
+          this.#displayInsertion({ diff, pos: { x: diffX, y: pos.y }, height });
           break;
         case "del":
           this.#displayDeletion({ diff, pos: { x: diffX, y: pos.y }, height });
           break;
         case "softClip":
+          this.#displaySoftClip({ diff, pos: { x: diffX, y: pos.y }, height });
           break;
       }
     });
@@ -658,7 +710,8 @@ export class AlignedReadsScene extends Scene {
       }
       try {
         this.#displayRead({ read, pos: { x: readX, y: pos.y }, height });
-      } catch {
+      } catch (error) {
+        LOG.warn(String(error));
         LOG.warn(JSON.stringify(read));
       }
     });

@@ -48,7 +48,11 @@ export const monkeyPatchBigInt = () => {
 export function range(start: bigint, end: bigint): bigint[];
 export function range(start: number, end: number): number[];
 export function range(start: any, end: any): any[] {
-  return Array.from({ length: Number(end - start) }, (_, i) => i + start);
+  if (typeof start === "bigint" && typeof end === "bigint") {
+    return Array.from({ length: Number(end - start) }, (_, i) => BigInt(i) + start);
+  } else {
+    return Array.from({ length: Number(end - start) }, (_, i) => i + start);
+  }
 }
 
 export const hexToString = (hex: number): string => {

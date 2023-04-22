@@ -144,7 +144,7 @@ export interface ColorConfig {
   secondaryText: number;
   nucleotideColors: NucleotideColorConfig;
   deletion: number;
-  inseertion: number;
+  insertion: number;
 }
 
 export interface FontConfig {

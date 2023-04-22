@@ -67,8 +67,15 @@ impl AlignedRead {
         let end = u64::try_from(cigar.end_pos()).with_context(|| {
             format!("Read {} has invalid end position ({})", qname, cigar.end_pos())
         })?;
-        let genomic_region = GenomicRegion::new(seq_name, start, end)?;
+        let mut genomic_region = GenomicRegion::new(seq_name, start, end)?;
         let diffs = iter_sequence_diffs(record, refseq).collect::<Result<Vec<SequenceDiff>>>()?;
+        for diff in &diffs {
+            // Accounting for the fact that softclips don't increment the read position per the SAM
+            // spec.
+            if let SequenceDiff::SoftClip { interval, .. } = diff {
+                genomic_region.interval.end += interval.len() as u64;
+            }
+        }
         let is_reverse = record.is_reverse();
         let mate_pos = get_mate_region(record, tid_map)?;
         let mut id = qname.clone();
