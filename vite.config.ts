@@ -1,5 +1,6 @@
-import { sveltekit } from "@sveltejs/kit/vite";
 import path from "path";
+
+import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
 
 // https://vitejs.dev/config/

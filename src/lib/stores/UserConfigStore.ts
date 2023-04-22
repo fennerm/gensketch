@@ -1,7 +1,7 @@
-import type { UserConfig } from "@lib/bindings";
 import { writable } from "svelte/store";
-import { getUserConfig, listenForUserConfigUpdated } from "@lib/backend";
 
+import type { UserConfig } from "@lib/bindings";
+import { getUserConfig, listenForUserConfigUpdated } from "@lib/backend";
 
 export const USER_CONFIG_STORE = writable<UserConfig | null>(null);
 

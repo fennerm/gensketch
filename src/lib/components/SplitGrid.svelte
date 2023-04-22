@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { SvelteComponent, afterUpdate, onMount } from "svelte";
+
   import { getSplits, listenForSplitAdded, listenForTrackAdded } from "@lib/backend";
   import type { AlignmentTrackData, SplitData } from "@lib/bindings";
   import RefSeqArea from "@lib/components/RefSeqArea.svelte";
@@ -10,7 +12,6 @@
   import { loadPixiAssets } from "@lib/drawing/drawing";
   import LOG from "@lib/logger";
   import { sum } from "@lib/util";
-  import { SvelteComponent, afterUpdate, onMount } from "svelte";
 
   // Minimum size that a split or track can be resized as percent of the split grid
   const minCellPct = 2;

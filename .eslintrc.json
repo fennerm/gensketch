@@ -15,10 +15,9 @@
       }
     }
   ],
-  "plugins": ["@typescript-eslint", "eslint-plugin-node", "compat"],
+  "plugins": ["@typescript-eslint", "eslint-plugin-node", "compat", "eslint-plugin-import"],
   "extends": [
     "eslint:recommended",
-    "prettier",
     "plugin:@typescript-eslint/eslint-recommended",
     "plugin:compat/recommended",
     "plugin:svelte/recommended"
@@ -26,7 +25,7 @@
   "env": {
     "browser": true
   },
-  "ignorePatterns": ["src-tauri"],
+  "ignorePatterns": ["src-tauri", "node_modules", "dist", "build", ".svelte-kit", "vite.config.ts"],
   "rules": {
     "no-unused-vars": "off",
     "no-self-assign": "off",
@@ -38,9 +37,29 @@
         "caughtErrorsIgnorePattern": "^_"
       }
     ],
-    "camelcase": "error"
+    "camelcase": "error",
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal"],
+        "newlines-between": "always"
+      }
+    ]
   },
   "settings": {
-    "polyfills": ["BigInt"]
+    "polyfills": ["BigInt"],
+    "import/resolver": {
+      "alias": {
+        "map": [
+          ["@lib", "./src/lib"],
+          ["tauri-plugin-log-api", "node_modules/tauri-plugin-log-api/dist-js/index.mjs"]
+        ],
+        "extensions": [".ts", ".js", ".json", ".svelte", ".mjs"]
+      }
+    },
+    "import/parsers": {
+      "@typescript-eslint/parser": [".ts"]
+    },
+    "import/external-module-folders": ["node_modules", "node_modules/@types"]
   }
 }

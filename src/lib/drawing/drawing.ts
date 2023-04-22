@@ -1,12 +1,14 @@
-import DejaVuSansMonoFntContents from "../../assets/DejaVuSansMono.fnt?raw";
-import DejaVuSansMonoPngUrl from "../../assets/DejaVuSansMono_0.png?url";
+import { type Group as LayerGroup, Stage as LayeredStage } from "@pixi/layers";
+import * as PIXI from "pixi.js";
+
 import { ValidationError } from "@lib/errors";
 import LOG from "@lib/logger";
 import type { Dimensions, Position } from "@lib/types";
 import { assertIsDefined } from "@lib/types";
 import { range } from "@lib/util";
-import { type Group as LayerGroup, Stage as LayeredStage } from "@pixi/layers";
-import * as PIXI from "pixi.js";
+
+import DejaVuSansMonoPngUrl from "../../assets/DejaVuSansMono_0.png?url";
+import DejaVuSansMonoFntContents from "../../assets/DejaVuSansMono.fnt?raw";
 
 export const DRAW_LETTER_THRESHOLD = 12;
 

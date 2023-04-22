@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy, onMount } from "svelte";
+
   import {
     getAlignments,
     getFocusedRegion,
@@ -18,7 +20,6 @@
   import { to1IndexedString } from "@lib/genomicCoordinates";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
-  import { onDestroy, onMount } from "svelte";
 
   export let trackId: string;
   export let splitId: string;

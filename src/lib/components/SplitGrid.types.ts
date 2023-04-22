@@ -8,4 +8,10 @@ export interface TrackState extends TrackData {
   heightPct: number;
 }
 
-export type DividerDragHandler = ({mouseEvent, dividerIndex}: {mouseEvent: MouseEvent, dividerIndex: number}) => void;
+export type DividerDragHandler = ({
+  mouseEvent,
+  dividerIndex,
+}: {
+  mouseEvent: MouseEvent;
+  dividerIndex: number;
+}) => void;

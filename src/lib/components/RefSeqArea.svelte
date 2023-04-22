@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { DividerDragHandler } from "./SplitGrid.types";
   import GridDivider from "@lib/components/GridDivider.svelte";
   import RefSeqView from "@lib/components/RefSeqView.svelte";
   import type { SplitState } from "@lib/components/SplitGrid.types";
+
+  import type { DividerDragHandler } from "./SplitGrid.types";
 
   export let splits: SplitState[] = [];
   export let handleVerticalDividerDrag: DividerDragHandler;

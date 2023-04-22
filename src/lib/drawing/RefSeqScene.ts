@@ -1,3 +1,5 @@
+import { Viewport } from "pixi-viewport";
+
 import type { GenomicRegion } from "@lib/bindings";
 import { PRIMARY_IUPAC_NUCLEOTIDES, SECONDARY_IUPAC_NUCLEOTIDES } from "@lib/constants";
 import { Scene } from "@lib/drawing/Scene";
@@ -12,7 +14,6 @@ import {
 import { getLength } from "@lib/genomicCoordinates";
 import LOG from "@lib/logger";
 import type { Dimensions } from "@lib/types";
-import { Viewport } from "pixi-viewport";
 
 const NUC_RECT_SUFFIX = "Rect";
 const NUC_TEXT_SUFFIX = "Text";

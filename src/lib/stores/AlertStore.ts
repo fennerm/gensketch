@@ -1,8 +1,9 @@
-import type { AlertData, AlertStatusUpdateParams } from "@lib/bindings";
-import LOG from "@lib/logger";
 import { writable } from "svelte/store";
 import type { Subscriber, Unsubscriber } from "svelte/store";
 import { v4 as uuidv4 } from "uuid";
+
+import LOG from "@lib/logger";
+import type { AlertData, AlertStatusUpdateParams } from "@lib/bindings";
 
 export interface AlertStatus extends AlertData {
   id: string;

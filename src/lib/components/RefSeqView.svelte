@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { to1IndexedString } from "@lib/genomicCoordinates.js";
+  import { onDestroy, onMount } from "svelte";
+
   import {
     getFocusedSequence,
     listenForFocusedSequenceUpdateQueued,
@@ -14,10 +17,8 @@
   } from "@lib/bindings";
   import Spinner from "@lib/components/Spinner.svelte";
   import { RefSeqScene } from "@lib/drawing/RefSeqScene";
-  import { to1IndexedString } from "@lib/genomicCoordinates.js";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
-  import { onDestroy, onMount } from "svelte";
 
   export let splitId: string;
   export let widthPct: number;

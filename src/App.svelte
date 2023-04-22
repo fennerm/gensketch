@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
   import { initializeBackend, listenForUserConfigUpdated } from "@lib/backend";
   import type { StyleConfig } from "@lib/bindings";
   import SplitGrid from "@lib/components/SplitGrid.svelte";
@@ -6,7 +8,6 @@
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
   import { monkeyPatchBigInt } from "@lib/util";
-  import { onMount } from "svelte";
 
   const updateTheme = (styles: StyleConfig) => {
     for (let [prop, color] of Object.entries(styles.colors)) {

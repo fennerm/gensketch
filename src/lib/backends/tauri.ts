@@ -1,3 +1,11 @@
+import { invoke } from "@tauri-apps/api";
+import { open } from "@tauri-apps/api/dialog";
+import type { Event, EventCallback, EventName, UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
+import type { InvokeArgs } from "@tauri-apps/api/tauri";
+import * as logApi from "tauri-plugin-log-api";
+
+import type { EventListener } from "@lib/types";
 import type {
   AlertData,
   AlertStatusUpdateParams,
@@ -13,18 +21,6 @@ import type {
   SplitMap,
   UserConfig,
 } from "@lib/bindings";
-import type { EventListener } from "@lib/types";
-import { invoke } from "@tauri-apps/api";
-import { open } from "@tauri-apps/api/dialog";
-import type { Event, EventCallback, EventName, UnlistenFn } from "@tauri-apps/api/event";
-import { listen } from "@tauri-apps/api/event";
-import type { InvokeArgs } from "@tauri-apps/api/tauri";
-import {
-  debug as logDebug,
-  error as logError,
-  info as logInfo,
-  warn as logWarn,
-} from "tauri-plugin-log-api";
 
 /**
  * Iterates through every key/value pair in an object and converts any strings which are valid ints
@@ -210,18 +206,18 @@ export const openFileDialog = async (): Promise<string[] | null> => {
 
 export class Logger {
   debug = (msg: string): void => {
-    logDebug(msg);
+    logApi.debug(msg);
   };
 
   info = (msg: string): void => {
-    logInfo(msg);
+    logApi.info(msg);
   };
 
   warn = (msg: string): void => {
-    logWarn(msg);
+    logApi.warn(msg);
   };
 
   error = (msg: string): void => {
-    logError(msg);
+    logApi.error(msg);
   };
 }

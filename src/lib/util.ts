@@ -45,9 +45,11 @@ export const monkeyPatchBigInt = () => {
   });
 };
 
-export const range = (start: number, end: number): number[] => {
-  return Array.from({ length: end - start }, (_, i) => i + start);
-};
+export function range(start: bigint, end: bigint): bigint[];
+export function range(start: number, end: number): number[];
+export function range(start: any, end: any): any[] {
+  return Array.from({ length: Number(end - start) }, (_, i) => i + start);
+}
 
 export const hexToString = (hex: number): string => {
   let hexString = `${hex.toString(16)}`;

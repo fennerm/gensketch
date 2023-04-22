@@ -1,11 +1,15 @@
+import { Layer, Group as LayerGroup } from "@pixi/layers";
+import { Viewport } from "pixi-viewport";
+import * as PIXI from "pixi.js";
+
 import type {
   AlignedPair,
   AlignedRead,
   AlignmentStackKind,
   Deletion,
   GenomicRegion,
-  Mismatch,
   PairedReads,
+  SoftClip,
   StyleConfig,
 } from "@lib/bindings";
 import { PRIMARY_IUPAC_NUCLEOTIDES, SECONDARY_IUPAC_NUCLEOTIDES } from "@lib/constants";
@@ -24,9 +28,6 @@ import { getLength, to1IndexedString } from "@lib/genomicCoordinates";
 import LOG from "@lib/logger";
 import type { Dimensions, Position } from "@lib/types";
 import { range } from "@lib/util";
-import { Layer, Group as LayerGroup } from "@pixi/layers";
-import { Viewport } from "pixi-viewport";
-import * as PIXI from "pixi.js";
 
 const MAX_ALIGNMENT_HEIGHT = 24;
 const READ_BODY_POOL = "readBody";
@@ -459,15 +460,15 @@ export class AlignedReadsScene extends Scene {
   };
 
   #displayMismatch = ({
-    diff,
+    nuc,
     pos,
     height,
   }: {
-    diff: Mismatch;
+    nuc: string;
     pos: Position;
     height: number;
   }): void => {
-    const nuc = diff.sequence !== "-" ? diff.sequence : "GAP";
+    nuc = nuc !== "-" ? nuc : "GAP";
     if (this.nucWidth > DRAW_LETTER_THRESHOLD) {
       this.drawPool.draw(nuc + NUC_TEXT_SUFFIX, {
         pos,
@@ -520,6 +521,22 @@ export class AlignedReadsScene extends Scene {
     });
   };
 
+  #displaySoftClip = ({
+    diff,
+    pos,
+    height,
+  }: {
+    diff: SoftClip;
+    pos: Position;
+    height: number;
+  }): void => {
+    range(diff.interval.start, diff.interval.end).forEach((basePos) => {
+      const x = Number(basePos - this.focusedRegion!.interval.start) * this.nucWidth;
+      const nuc = diff.sequence[Number(basePos - diff.interval.start)];
+      this.#displayMismatch({ nuc, pos: { x, y: pos.y }, height });
+    });
+  };
+
   #displayDiffs = ({
     read,
     pos,
@@ -534,7 +551,7 @@ export class AlignedReadsScene extends Scene {
         Number(diff.interval.start - this.focusedRegion!.interval.start) * this.nucWidth;
       switch (diff.type) {
         case "mismatch": {
-          this.#displayMismatch({ diff, pos: { x: diffX, y: pos.y }, height });
+          this.#displayMismatch({ nuc: diff.sequence, pos: { x: diffX, y: pos.y }, height });
           break;
         }
         case "ins":

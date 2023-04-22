@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
   import { getReferenceSequence, updateFocusedRegion } from "@lib/backend";
   import type { GenomicRegion, SeqLengthMap } from "@lib/bindings";
   import { defaultErrorHandler } from "@lib/errorHandling";
   import { getLength, parse1IndexedCoordinates, to1IndexedString } from "@lib/genomicCoordinates";
   import LOG from "@lib/logger";
-  import { onMount } from "svelte";
 
   export let splitId: string;
   export let focusedRegion: GenomicRegion;
