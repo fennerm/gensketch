@@ -22,9 +22,14 @@ export const isBitmapText = (obj: any): obj is PIXI.BitmapText => {
   return obj.fontSize !== undefined;
 };
 
-// Update the position/dimensions of a PIXI sprite but only if they actually changed.
+export const hasTint = (obj: any): obj is PIXI.Sprite => {
+  return obj.tint !== undefined;
+};
+
+// Update the attributes of a PIXI sprite but only if they actually changed.
 //
 // I'm unsure if this guard is actually necessary, but including it to be safe.
+// TODO Remove this method and just use the PIXI update method directly.
 export const updateIfChanged = ({
   container,
   pos,
@@ -32,9 +37,11 @@ export const updateIfChanged = ({
   fontSize,
   text,
   visible,
+  interactive,
   onMouseOver,
   onMouseOut,
   layer,
+  color,
 }: {
   container: PIXI.Container;
   readonly pos?: Position;
@@ -42,9 +49,11 @@ export const updateIfChanged = ({
   fontSize?: number;
   text?: string;
   visible?: boolean;
+  interactive?: boolean;
   onMouseOver?: (event: PIXI.FederatedPointerEvent) => void;
   onMouseOut?: (event: PIXI.FederatedPointerEvent) => void;
   layer?: LayerGroup;
+  color?: number;
 }): void => {
   if (pos !== undefined && pos.x !== container.x) {
     container.x = pos.x;
@@ -60,6 +69,12 @@ export const updateIfChanged = ({
   }
   if (visible !== undefined && container.visible !== visible) {
     container.visible = visible;
+  }
+  if (hasTint(container) && color !== undefined && container.tint !== color) {
+    container.tint = color;
+  }
+  if (interactive !== undefined && container.interactive !== interactive) {
+    container.interactive = interactive;
   }
   if (onMouseOver !== undefined) {
     container.addEventListener("mouseover", onMouseOver);

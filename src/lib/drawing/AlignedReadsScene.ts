@@ -49,13 +49,13 @@ const DEFAULT_CAP_WIDTH = DEFAULT_NUC_WIDTH;
 const DEFAULT_PAIR_LINE_HEIGHT = 1;
 const DEFAULT_DELETION_LINE_HEIGHT = 1;
 const DEFAULT_DELETION_LABEL_MASK_WIDTH = 2 * DEFAULT_NUC_WIDTH;
-const DEFAULT_INSERTION_WIDTH = 0.75;
+const DEFAULT_INSERTION_WIDTH = 1;
 const DEFAULT_PAIR_LINE_WIDTH = 100;
 const DEFAULT_DELETION_WIDTH = DEFAULT_NUC_WIDTH;
 const DEFAULT_DELETION_LABEL_FONTSIZE = 14;
 const DEFAULT_INSERTION_LABEL_FONTSIZE = DEFAULT_DELETION_LABEL_FONTSIZE;
 const DELETION_LABEL_PADDING = 2;
-const INSERTION_LABEL_PADDING = 1;
+const INSERTION_LABEL_PADDING = 3;
 // Character width as a fraction of the font size
 const FONT_CHAR_WIDTH = 0.6;
 
@@ -64,6 +64,7 @@ const MIN_DELETION_LENGTH_FOR_LABEL = 5;
 export interface AlignedReadsTextures {
   forwardReadCap: PIXI.RenderTexture;
   reverseReadCap: PIXI.RenderTexture;
+  insertion: PIXI.RenderTexture;
 }
 
 class TooltipField extends PIXI.Container {
@@ -230,7 +231,7 @@ export class AlignedReadsScene extends Scene {
     this.textures.reverseReadCap.destroy();
   };
 
-  #initReadCapTexture = (): PIXI.RenderTexture => {
+  #initTriangleTexture = (): PIXI.RenderTexture => {
     const texture = PIXI.RenderTexture.create({
       width: DEFAULT_CAP_WIDTH,
       height: DEFAULT_READ_HEIGHT,
@@ -242,9 +243,11 @@ export class AlignedReadsScene extends Scene {
 
   #initTextures = (): AlignedReadsTextures => {
     const textures = {
-      forwardReadCap: this.#initReadCapTexture(),
-      reverseReadCap: this.#initReadCapTexture(),
+      forwardReadCap: this.#initTriangleTexture(),
+      reverseReadCap: this.#initTriangleTexture(),
+      insertion: this.#initTriangleTexture(),
     };
+
     const forwardReadCapTemplate = drawTriangle({
       vertices: [
         { x: 0, y: 0 },
@@ -261,6 +264,14 @@ export class AlignedReadsScene extends Scene {
       ],
       color: 0xffffff,
     });
+    const insertionTemplate = drawTriangle({
+      vertices: [
+        { x: 0, y: 0 },
+        { x: DEFAULT_INSERTION_WIDTH * DEFAULT_NUC_WIDTH, y: 0 },
+        { x: (DEFAULT_INSERTION_WIDTH * DEFAULT_NUC_WIDTH) / 2, y: DEFAULT_READ_HEIGHT },
+      ],
+      color: 0xffffff,
+    });
 
     this.pixiApp.loadRenderTexture({
       shape: forwardReadCapTemplate,
@@ -270,6 +281,10 @@ export class AlignedReadsScene extends Scene {
       shape: reverseReadCapTemplate,
       texture: textures.reverseReadCap,
     });
+    this.pixiApp.loadRenderTexture({
+      shape: insertionTemplate,
+      texture: textures.insertion,
+    });
 
     // Required for MSAA, WebGL 2 only
     this.pixiApp.renderer.framebuffer.blit();
@@ -278,8 +293,8 @@ export class AlignedReadsScene extends Scene {
 
   #drawReadCap = ({
     texture,
-    pos,
-    dim,
+    pos = { x: 0, y: 0 },
+    dim = { width: DEFAULT_CAP_WIDTH, height: DEFAULT_READ_HEIGHT },
     color,
     layer,
   }: {
@@ -289,16 +304,29 @@ export class AlignedReadsScene extends Scene {
     color?: number;
     layer?: LayerGroup;
   }): PIXI.Sprite => {
-    pos = pos === undefined ? { x: 0, y: 0 } : pos;
-    dim = dim === undefined ? { width: DEFAULT_CAP_WIDTH, height: DEFAULT_READ_HEIGHT } : dim;
     const cap = new PIXI.Sprite(texture);
+    // TODO double check if this setTransform is necessary
     cap.setTransform();
-    cap.interactive = true;
-    if (color !== undefined) {
-      cap.tint = color;
-    }
-    updateIfChanged({ container: cap, pos, dim, layer });
+    updateIfChanged({ container: cap, pos, dim, layer, color, interactive: true });
     return cap;
+  };
+
+  #drawInsertion = ({
+    pos = { x: 0, y: 0 },
+    dim = { width: DEFAULT_INSERTION_WIDTH, height: DEFAULT_READ_HEIGHT },
+    color,
+    layer,
+  }: {
+    readonly pos?: Position;
+    readonly dim?: Dimensions;
+    color?: number;
+    layer?: LayerGroup;
+  }): PIXI.Sprite => {
+    const insertion = new PIXI.Sprite(this.textures.insertion);
+    // TODO double check if this setTransform is necessary
+    insertion.setTransform();
+    updateIfChanged({ container: insertion, pos, dim, layer, color });
+    return insertion;
   };
 
   #drawForwardReadCap = ({
@@ -434,7 +462,7 @@ export class AlignedReadsScene extends Scene {
     };
     drawConfig[INSERTION_POOL] = {
       drawFn: () =>
-        drawRect({
+        this.#drawInsertion({
           color: this.styles.colors.insertion,
           layer: this.layers[3],
           dim: { width: DEFAULT_INSERTION_WIDTH * DEFAULT_NUC_WIDTH, height: DEFAULT_READ_HEIGHT },
@@ -445,6 +473,7 @@ export class AlignedReadsScene extends Scene {
       drawFn: () =>
         drawText({
           text: "1",
+          layer: this.layers[4],
           style: {
             fontSize: DEFAULT_INSERTION_LABEL_FONTSIZE,
             tint: this.styles.colors.background,
@@ -550,6 +579,7 @@ export class AlignedReadsScene extends Scene {
     });
   };
 
+  // Note that `pos` is the center of the insertion (not the left edge as with other variant types)
   #displayInsertion = ({
     diff,
     pos,
@@ -559,18 +589,19 @@ export class AlignedReadsScene extends Scene {
     pos: Position;
     height: number;
   }): void => {
-    LOG.warn(JSON.stringify(diff));
-    this.drawPool.draw(INSERTION_POOL, {
-      pos,
-      dim: { width: DEFAULT_INSERTION_WIDTH * this.nucWidth, height },
-    });
     const insertionLength = diff.sequence.length;
-    const labelText = String(insertionLength);
-    const fontSize = Math.floor(this.nucWidth / FONT_CHAR_WIDTH);
+    const labelText = insertionLength == 1 ? diff.sequence : String(insertionLength);
+    const fontSize = this.readHeight - 4;
+    const width = FONT_CHAR_WIDTH * fontSize * labelText.length + 2 * INSERTION_LABEL_PADDING;
+    const x = pos.x - width / 2;
+    this.drawPool.draw(INSERTION_POOL, {
+      pos: { x, y: pos.y },
+      dim: { width, height },
+    });
     LOG.warn(`${this.nucWidth} ${fontSize}`);
     this.drawPool.draw(INSERTION_LABEL_POOL, {
       text: labelText,
-      pos: { x: pos.x + INSERTION_LABEL_PADDING, y: pos.y },
+      pos: { x: x + INSERTION_LABEL_PADDING, y: pos.y - 2 },
       fontSize,
     });
   };
