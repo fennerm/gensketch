@@ -1,7 +1,7 @@
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
 use anyhow::Result;
-use tauri_plugin_log::{LogTarget, LoggerBuilder};
+use tauri_plugin_log::LogTarget;
 
 use gensketch_lib::interface::backend::Backend;
 // TODO Figure out why I need to import these __cmd__ functions manually. This started happening
@@ -19,7 +19,7 @@ use gensketch_lib::interface::commands::{
 fn main() -> Result<()> {
     tauri::Builder::default()
         .plugin(
-            LoggerBuilder::new()
+            tauri_plugin_log::Builder::new()
                 .targets([LogTarget::LogDir, LogTarget::Stdout, LogTarget::Webview])
                 .build(),
         )
