@@ -182,6 +182,7 @@ export class AlignedReadsScene extends Scene {
   tooltip: AlignedReadTooltip;
   focusedRegionLength: number;
   bufferedRegionLength: number;
+  viewportOffset: number;
   nucWidth: number;
   readHeight: number;
   rowHeight: number;
@@ -208,6 +209,7 @@ export class AlignedReadsScene extends Scene {
     this.tooltip = this.#initTooltip();
     this.focusedRegion = null;
     this.alignments = null;
+    this.viewportOffset = 0;
     this.focusedRegionLength = 0;
     this.bufferedRegionLength = 0;
     this.nucWidth = 0;
@@ -557,13 +559,15 @@ export class AlignedReadsScene extends Scene {
     pos: Position;
     height: number;
   }): void => {
+    LOG.warn(JSON.stringify(diff));
     this.drawPool.draw(INSERTION_POOL, {
       pos,
       dim: { width: DEFAULT_INSERTION_WIDTH * this.nucWidth, height },
     });
     const insertionLength = diff.sequence.length;
     const labelText = String(insertionLength);
-    const fontSize = Math.floor((this.nucWidth - 2 * INSERTION_LABEL_PADDING) / FONT_CHAR_WIDTH);
+    const fontSize = Math.floor(this.nucWidth / FONT_CHAR_WIDTH);
+    LOG.warn(`${this.nucWidth} ${fontSize}`);
     this.drawPool.draw(INSERTION_LABEL_POOL, {
       text: labelText,
       pos: { x: pos.x + INSERTION_LABEL_PADDING, y: pos.y },
@@ -619,15 +623,16 @@ export class AlignedReadsScene extends Scene {
 
   #displayTooltip = ({ read, pos }: { readonly read: AlignedRead; pos: Position }) => {
     this.tooltip.setRead(read);
-    if (pos.x + this.tooltip.width + 5 > this.canvas.offsetLeft + this.canvas.offsetWidth) {
-      this.tooltip.x = pos.x - this.tooltip.width;
-    } else {
-      this.tooltip.x = pos.x;
+    this.tooltip.x = pos.x;
+    this.tooltip.y = pos.y;
+    if (
+      pos.x - this.viewportOffset + this.tooltip.width + 5 >
+      this.canvas.offsetLeft + this.canvas.offsetWidth
+    ) {
+      this.tooltip.x -= this.tooltip.width;
     }
     if (pos.y + this.tooltip.height + 5 > this.canvas.offsetTop + this.canvas.offsetHeight) {
-      this.tooltip.y = pos.y - this.tooltip.height;
-    } else {
-      this.tooltip.y = pos.y;
+      this.tooltip.y -= this.tooltip.height;
     }
     this.tooltip.visible = true;
     this.viewport.addChild(this.tooltip);
@@ -649,7 +654,13 @@ export class AlignedReadsScene extends Scene {
     const width = Number(read.region.interval.end - read.region.interval.start) * this.nucWidth;
 
     const onMouseOver = (event: PIXI.FederatedPointerEvent): void => {
-      this.#displayTooltip({ read, pos: { x: event.data.global.x, y: event.data.global.y } });
+      this.#displayTooltip({
+        read,
+        pos: {
+          x: event.globalX + this.viewportOffset,
+          y: event.globalY,
+        },
+      });
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -767,11 +778,10 @@ export class AlignedReadsScene extends Scene {
       this.bufferDim.width,
       this.bufferDim.height
     );
-    this.viewport.moveCorner(
+    this.viewportOffset =
       Number(this.focusedRegion.interval.start - this.alignments.bufferedRegion.interval.start) *
-        this.nucWidth,
-      0
-    );
+      this.nucWidth;
+    this.viewport.moveCorner(this.viewportOffset, 0);
   };
 
   draw = () => {
