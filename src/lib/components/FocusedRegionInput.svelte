@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { getReferenceSequence, updateFocusedRegion } from "@lib/backend";
+  import {
+    getReferenceSequence,
+    listenForFocusedRegionUpdated,
+    updateFocusedRegion,
+  } from "@lib/backend";
   import type { GenomicRegion, SeqLengthMap } from "@lib/bindings";
   import { defaultErrorHandler } from "@lib/errorHandling";
   import { getLength, parse1IndexedCoordinates, to1IndexedString } from "@lib/genomicCoordinates";
@@ -73,13 +77,19 @@
       return;
     }
   };
+
+  listenForFocusedRegionUpdated((event) => {
+    if (event.payload.splitId === splitId) {
+      focusedRegion = event.payload.genomicRegion;
+    }
+  });
 </script>
 
 <input
   class="genomic-region-input"
   bind:value={regionString}
-  on:change={handleInputFinalized}
-  on:input={handleInputChanged}
+  on:change|stopPropagation={handleInputFinalized}
+  on:input|stopPropagation={handleInputChanged}
 />
 
 <style>

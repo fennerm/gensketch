@@ -109,6 +109,8 @@ export interface SplitData {
   refreshBoundRegion: GenomicRegion;
 }
 
+export type Direction = "Left" | "Right";
+
 export type SplitMap = {
   [splitId: string]: SplitData;
 };

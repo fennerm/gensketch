@@ -20,6 +20,7 @@ import type {
   SplitData,
   SplitMap,
   UserConfig,
+  Direction,
 } from "@lib/bindings";
 
 /**
@@ -118,6 +119,10 @@ export const initializeBackend = (): Promise<null> => {
   return runCommand<null>("initialize");
 };
 
+export const panFocusedSplit = (direction: Direction): Promise<null> => {
+  return runCommand<null>("pan_focused_split", { direction });
+};
+
 export const updateFocusedRegion = ({
   splitId,
   genomicRegion,
@@ -126,6 +131,10 @@ export const updateFocusedRegion = ({
   readonly genomicRegion: GenomicRegion | GenomicRegion;
 }): Promise<null> => {
   return runCommand<null>("update_focused_region", { splitId, genomicRegion });
+};
+
+export const updateFocusedSplit = (splitId: string): Promise<null> => {
+  return runCommand<null>("update_focused_split", { splitId });
 };
 
 export const listenForSplitAdded: EventListener<SplitData> = (handler) => {
@@ -190,6 +199,10 @@ export const listenForRegionZoomed: EventListener<FocusedRegionUpdatedPayload> =
 
 export const listenForRefSeqFileUpdated: EventListener<ReferenceSequence> = (handler) => {
   return tauriListen<ReferenceSequence>("ref-seq-file-updated", handler);
+};
+
+export const listenForFocusedSplitUpdated: EventListener<string> = (handler) => {
+  return tauriListen<string>("focused-split-updated", handler);
 };
 
 /**

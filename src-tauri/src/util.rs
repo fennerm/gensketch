@@ -1,5 +1,13 @@
+use serde::Deserialize;
+
 pub fn same_enum_variant<T>(a: &T, b: &T) -> bool {
     std::mem::discriminant(a) == std::mem::discriminant(b)
+}
+
+#[derive(Debug, Deserialize)]
+pub enum Direction {
+    Left,
+    Right,
 }
 
 #[cfg(test)]

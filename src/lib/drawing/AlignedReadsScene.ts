@@ -598,7 +598,6 @@ export class AlignedReadsScene extends Scene {
       pos: { x, y: pos.y },
       dim: { width, height },
     });
-    LOG.warn(`${this.nucWidth} ${fontSize}`);
     this.drawPool.draw(INSERTION_LABEL_POOL, {
       text: labelText,
       pos: { x: x + INSERTION_LABEL_PADDING, y: pos.y - 2 },

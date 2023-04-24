@@ -16,15 +16,16 @@ use crate::interface::events::{
 };
 use crate::interface::split::{BoundState, Split, SplitId};
 use crate::interface::track::{AlignmentTrack, Track, TrackId};
+use crate::util::Direction;
 
 #[derive(Debug)]
 pub struct SplitGrid {
     pub splits: DashMap<SplitId, RwLock<Split>>,
     pub tracks: DashMap<TrackId, RwLock<Track>>,
     pub reference: RwLock<ReferenceSequence>,
+    pub focused_split: RwLock<SplitId>,
     alignments: DashMap<(TrackId, SplitId), RwLock<StackReader>>,
     max_render_window: RwLock<u64>,
-    latest_split: RwLock<SplitId>,
 }
 
 impl SplitGrid {
@@ -40,11 +41,11 @@ impl SplitGrid {
             max_render_window,
             seq_length,
         )?;
-        let latest_split = RwLock::new(split.id.clone());
+        let focused_split = RwLock::new(split.id.clone());
         splits.insert(split.id, RwLock::new(split));
         let alignments = DashMap::new();
         let max_render_window = RwLock::new(max_render_window);
-        Ok(Self { splits, tracks, reference, alignments, max_render_window, latest_split })
+        Ok(Self { splits, tracks, reference, alignments, max_render_window, focused_split })
     }
 
     pub fn set_max_render_window(&self, max_render_window: u64) -> Result<()> {
@@ -164,8 +165,8 @@ impl SplitGrid {
         let focused_region;
         if self.splits.len() > 0 {
             focused_region = self
-                .get_split(&self.latest_split.read())
-                .context(format!("Failed to find split id={}", &self.latest_split.read()))?
+                .get_split(&self.focused_split.read())
+                .context(format!("Failed to find split id={}", &self.focused_split.read()))?
                 .read()
                 .focused_region
                 .clone();
@@ -191,7 +192,7 @@ impl SplitGrid {
             *self.max_render_window.read(),
             seq_length,
         )?;
-        *self.latest_split.write() = split.id.clone();
+        *self.focused_split.write() = split.id.clone();
         let split_id = split.id.clone();
         self.splits.insert(split.id, RwLock::new(split));
         let tracks_info: Vec<(TrackId, PathBuf)> = self
@@ -211,7 +212,39 @@ impl SplitGrid {
             .collect::<Result<_>>()?;
         let split = self.splits.get(&split_id).unwrap();
         event_emitter.emit(Event::SplitAdded, &*split.read())?;
+        event_emitter.emit(Event::FocusedSplitUpdated, &split_id)?;
         Ok(split_id)
+    }
+
+    pub fn pan_focused_split<E: EmitEvent>(
+        &self,
+        event_emitter: &E,
+        direction: &Direction,
+    ) -> Result<()> {
+        let focused_split_id = self.focused_split.read().clone();
+        let mut updated_region = self.get_split(&focused_split_id)?.read().focused_region.clone();
+        let mut panned_bp = updated_region.len() / 10 as u64;
+        match direction {
+            Direction::Left => {
+                if updated_region.start().saturating_sub(panned_bp) == 0 {
+                    panned_bp = updated_region.start();
+                }
+                log::debug!("Panning focused split={} left by {}bp", focused_split_id, panned_bp);
+                updated_region.interval.start -= panned_bp;
+                updated_region.interval.end -= panned_bp;
+            }
+            Direction::Right => {
+                let seq_length = self.reference.read().get_seq_length(&updated_region.seq_name)?;
+                if updated_region.end() + panned_bp > seq_length {
+                    panned_bp = seq_length - updated_region.end();
+                }
+                log::debug!("Panning focused split={} right by {}bp", focused_split_id, panned_bp);
+                updated_region.interval.start += panned_bp;
+                updated_region.interval.end += panned_bp;
+            }
+        };
+        self.update_focused_region(event_emitter, &focused_split_id, updated_region)?;
+        Ok(())
     }
 
     pub fn update_focused_region<E: EmitEvent>(

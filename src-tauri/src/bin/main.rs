@@ -69,9 +69,8 @@ fn main() -> Result<()> {
             update_focused_split
         ])
         .setup(|_| {
-            if cfg!(debug_assertions) {
-                spawn_deadlock_detection_thread()
-            }
+            #[cfg(debug_assertions)]
+            spawn_deadlock_detection_thread();
             Ok(())
         })
         .run(tauri::generate_context!())
