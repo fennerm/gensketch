@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { initializeBackend, listenForUserConfigUpdated } from "@lib/backend";
-  import type { StyleConfig } from "@lib/bindings";
+  import { initializeBackend, listenForUserConfigUpdated, panFocusedSplit } from "@lib/backend";
+  import type { Direction, StyleConfig } from "@lib/bindings";
   import SplitGrid from "@lib/components/SplitGrid.svelte";
   import Toolbar from "@lib/components/Toolbar.svelte";
   import LOG from "@lib/logger";
@@ -20,7 +20,24 @@
   onMount(() => {
     initializeBackend().catch((err) => LOG.error(err));
     monkeyPatchBigInt();
+    window.addEventListener("keydown", handleKeyDown, false);
   });
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowRight": {
+        if (document.activeElement?.tagName === "INPUT") {
+          return;
+        }
+        const direction = event.key.replace("Arrow", "") as Direction;
+        LOG.debug(`Panning focused split ${direction}`);
+        event.preventDefault();
+        panFocusedSplit(direction).catch((err) => LOG.error(err));
+        break;
+      }
+    }
+  };
 
   listenForUserConfigUpdated((event) => updateTheme(event.payload.styles));
 </script>
