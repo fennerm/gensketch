@@ -21,6 +21,7 @@ import type {
   SplitMap,
   UserConfig,
   Direction,
+  GridCoord,
 } from "@lib/bindings";
 
 /**
@@ -97,6 +98,10 @@ export const getFocusedRegion = (splitId: string): Promise<GenomicRegion> => {
   return runCommand<GenomicRegion>("get_focused_region", { splitId });
 };
 
+export const getGridFocus = (): Promise<GridCoord> => {
+  return runCommand<GridCoord>("get_grid_focus");
+};
+
 export const getReferenceSequence = (): Promise<ReferenceSequence> => {
   return runCommand<ReferenceSequence>("get_reference_sequence");
 };
@@ -133,8 +138,8 @@ export const updateFocusedRegion = ({
   return runCommand<null>("update_focused_region", { splitId, genomicRegion });
 };
 
-export const updateFocusedSplit = (splitId: string): Promise<null> => {
-  return runCommand<null>("update_focused_split", { splitId });
+export const updateGridFocus = (gridCoord: GridCoord): Promise<null> => {
+  return runCommand<null>("update_grid_focus", { gridCoord });
 };
 
 export const listenForSplitAdded: EventListener<SplitData> = (handler) => {
@@ -201,8 +206,8 @@ export const listenForRefSeqFileUpdated: EventListener<ReferenceSequence> = (han
   return tauriListen<ReferenceSequence>("ref-seq-file-updated", handler);
 };
 
-export const listenForFocusedSplitUpdated: EventListener<string> = (handler) => {
-  return tauriListen<string>("focused-split-updated", handler);
+export const listenForGridFocusUpdated: EventListener<GridCoord> = (handler) => {
+  return tauriListen<GridCoord>("focused-split-updated", handler);
 };
 
 /**

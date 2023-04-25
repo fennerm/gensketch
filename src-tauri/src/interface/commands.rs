@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
 use crate::errors::CommandResult;
 use crate::interface::backend::Backend;
-use crate::interface::events::{EmitEvent, Event, EventEmitter, FocusedSequenceUpdatedPayload};
+use crate::interface::events::{EventEmitter, FocusedSequenceUpdatedPayload};
 use crate::interface::split::SplitId;
-use crate::interface::split_grid::SplitGrid;
+use crate::interface::split_grid::GridCoord;
 use crate::interface::track::TrackId;
 use crate::util::Direction;
 
@@ -74,6 +74,12 @@ pub fn get_alignments(
 }
 
 #[tauri::command(async)]
+pub fn get_grid_focus(state: tauri::State<Backend>) -> CommandResult<serde_json::Value> {
+    let json = serde_json::to_value(state.split_grid.read().focus.read().clone())?;
+    Ok(json)
+}
+
+#[tauri::command(async)]
 pub fn get_splits(state: tauri::State<Backend>) -> CommandResult<serde_json::Value> {
     let json = serde_json::to_value(&state.split_grid.read().splits)?;
     Ok(json)
@@ -104,7 +110,6 @@ pub fn pan_focused_split(
     state: tauri::State<Backend>,
     direction: Direction,
 ) -> CommandResult<()> {
-    log::debug!("Backend received pan request");
     let event_emitter = EventEmitter::new(&app);
     state.split_grid.read().pan_focused_split(&event_emitter, &direction)?;
     Ok(())
@@ -122,13 +127,13 @@ pub fn update_focused_region(
 }
 
 #[tauri::command(async)]
-pub fn update_focused_split(
+pub fn update_grid_focus(
     app: tauri::AppHandle,
     state: tauri::State<Backend>,
-    split_id: SplitId,
+    grid_coord: GridCoord,
 ) -> CommandResult<()> {
+    log::warn!("Updating grid focus");
     let event_emitter = EventEmitter::new(&app);
-    *state.split_grid.read().focused_split.write() = split_id;
-    event_emitter.emit(Event::FocusedSplitUpdated, split_id)?;
+    state.split_grid.read().update_grid_focus(&event_emitter, grid_coord)?;
     Ok(())
 }

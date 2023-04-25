@@ -9,14 +9,14 @@ use gensketch_lib::interface::backend::Backend;
 // when I switched from a binary to a library crate.
 use gensketch_lib::interface::commands::{
     __cmd__add_alignment_track, __cmd__add_split, __cmd__get_alignments, __cmd__get_focused_region,
-    __cmd__get_focused_sequence, __cmd__get_reference_sequence, __cmd__get_splits,
-    __cmd__get_user_config, __cmd__initialize, __cmd__pan_focused_split,
-    __cmd__update_focused_region, __cmd__update_focused_split,
+    __cmd__get_focused_sequence, __cmd__get_grid_focus, __cmd__get_reference_sequence,
+    __cmd__get_splits, __cmd__get_user_config, __cmd__initialize, __cmd__pan_focused_split,
+    __cmd__update_focused_region, __cmd__update_grid_focus,
 };
 use gensketch_lib::interface::commands::{
     add_alignment_track, add_split, get_alignments, get_focused_region, get_focused_sequence,
-    get_reference_sequence, get_splits, get_user_config, initialize, pan_focused_split,
-    update_focused_region, update_focused_split,
+    get_grid_focus, get_reference_sequence, get_splits, get_user_config, initialize,
+    pan_focused_split, update_focused_region, update_grid_focus,
 };
 
 #[cfg(debug_assertions)]
@@ -60,13 +60,14 @@ fn main() -> Result<()> {
             get_alignments,
             get_focused_region,
             get_focused_sequence,
+            get_grid_focus,
             get_reference_sequence,
             get_splits,
             get_user_config,
             initialize,
             pan_focused_split,
             update_focused_region,
-            update_focused_split
+            update_grid_focus
         ])
         .setup(|_| {
             #[cfg(debug_assertions)]

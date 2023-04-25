@@ -170,10 +170,15 @@ class AlignedReadTooltip extends PIXI.Container {
   };
 }
 
+export interface AlignedReadsSceneParams extends SceneParams {
+  handleClick: () => void;
+}
+
 // I considered breaking this up into multiple smaller container classes (e.g one for aligned read,
 // one for aligned pair, etc) but it don't think that would play nice with our DrawPoolGroup
 // implementation (since all sprites need to be drawn to the same container).
 export class AlignedReadsScene extends Scene {
+  handleClick: () => void;
   drawPool: DrawPoolGroup;
   bufferDim: Dimensions;
   viewport: Viewport;
@@ -183,14 +188,15 @@ export class AlignedReadsScene extends Scene {
   tooltip: AlignedReadTooltip;
   focusedRegionLength: number;
   bufferedRegionLength: number;
-  viewportOffset: number;
+  viewportOffset: Position;
   nucWidth: number;
   readHeight: number;
   rowHeight: number;
   layers: LayerGroup[];
 
-  constructor(params: SceneParams) {
+  constructor(params: AlignedReadsSceneParams) {
     super({ ...params, layered: true });
+    this.handleClick = params.handleClick;
     this.bufferDim = { width: 3 * this.dim.width, height: 3 * this.dim.height };
     this.viewport = new Viewport({
       screenWidth: this.dim.width,
@@ -201,6 +207,7 @@ export class AlignedReadsScene extends Scene {
     });
     this.pixiApp.stage.addChild(this.viewport);
     this.viewport.drag().pinch().decelerate().clamp({ direction: "all" });
+    this.viewport.addEventListener("click", this.handleClick);
     this.layers = range(0, 8).map((i) => new LayerGroup(i, true));
     // The tooltip layer is on top and has nested layering
     this.layers[this.layers.length - 1].enableSort = true;
@@ -210,7 +217,7 @@ export class AlignedReadsScene extends Scene {
     this.tooltip = this.#initTooltip();
     this.focusedRegion = null;
     this.alignments = null;
-    this.viewportOffset = 0;
+    this.viewportOffset = { x: 0, y: 0 };
     this.focusedRegionLength = 0;
     this.bufferedRegionLength = 0;
     this.nucWidth = 0;
@@ -656,7 +663,7 @@ export class AlignedReadsScene extends Scene {
     this.tooltip.x = pos.x;
     this.tooltip.y = pos.y;
     if (
-      pos.x - this.viewportOffset + this.tooltip.width + 5 >
+      pos.x - this.viewportOffset.x + this.tooltip.width + 5 >
       this.canvas.offsetLeft + this.canvas.offsetWidth
     ) {
       this.tooltip.x -= this.tooltip.width;
@@ -687,7 +694,7 @@ export class AlignedReadsScene extends Scene {
       this.#displayTooltip({
         read,
         pos: {
-          x: event.globalX + this.viewportOffset,
+          x: event.globalX + this.viewportOffset.x,
           y: event.globalY,
         },
       });
@@ -808,10 +815,28 @@ export class AlignedReadsScene extends Scene {
       this.bufferDim.width,
       this.bufferDim.height
     );
-    this.viewportOffset =
-      Number(this.focusedRegion.interval.start - this.alignments.bufferedRegion.interval.start) *
-      this.nucWidth;
-    this.viewport.moveCorner(this.viewportOffset, 0);
+    this.viewportOffset = {
+      x:
+        Number(this.focusedRegion.interval.start - this.alignments.bufferedRegion.interval.start) *
+        this.nucWidth,
+      y: this.viewportOffset.y,
+    };
+    this.viewport.moveCorner(this.viewportOffset.x, this.viewportOffset.y);
+  };
+
+  scroll = (delta: number): void => {
+    let y = this.viewportOffset.y + delta * this.bufferDim.height;
+    const maxY = this.bufferDim.height - this.dim.height;
+    if (y < 0) {
+      y = 0;
+    } else if (y > maxY) {
+      y = maxY;
+    }
+    this.viewportOffset = {
+      x: this.viewportOffset.x,
+      y,
+    };
+    this.viewport.moveCorner(this.viewportOffset.x, this.viewportOffset.y);
   };
 
   draw = () => {

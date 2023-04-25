@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
 
   import { initializeBackend, listenForUserConfigUpdated, panFocusedSplit } from "@lib/backend";
   import type { Direction, StyleConfig } from "@lib/bindings";
@@ -21,6 +21,10 @@
     initializeBackend().catch((err) => LOG.error(err));
     monkeyPatchBigInt();
     window.addEventListener("keydown", handleKeyDown, false);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener("keydown", handleKeyDown);
   });
 
   const handleKeyDown = (event: KeyboardEvent) => {

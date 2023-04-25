@@ -172,3 +172,8 @@ export interface ReferenceSequence {
   defaultFocusedRegion: GenomicRegion;
   seqLengths: SeqLengthMap;
 }
+
+export interface GridCoord {
+  trackId: string;
+  splitId: string;
+}

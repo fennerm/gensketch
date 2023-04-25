@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use parking_lot::RwLock;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use crate::alignments::alignment_reader::AlignmentReader;
 use crate::alignments::stack::AlignmentStack;
@@ -64,23 +63,14 @@ impl StackReader {
     pub fn read_stacked(&mut self, region: &GenomicRegion, seqview: &SequenceView) -> Result<()> {
         let alignments = match &mut self.reader {
             AlignmentReaderKind::BamKind(reader) => {
-                let start = Instant::now();
                 let aligned_reads = reader.read(region, seqview)?;
-                let duration = start.elapsed();
-                log::debug!("Time elapsed in reader.read() is: {:?}", duration);
-                let start = Instant::now();
                 let paired = pair_reads(aligned_reads)?;
-                let duration = start.elapsed();
-                log::debug!("Time elapsed in pair_reads() is: {:?}", duration);
                 paired
             }
         };
-        let start = Instant::now();
         match &mut *self.stack.write() {
             AlignmentStackKind::AlignedPairKind(stack) => stack.update(alignments, region),
         }?;
-        let duration = start.elapsed();
-        log::debug!("Time elapsed in stack.update() is: {:?}", duration);
         Ok(())
     }
 }

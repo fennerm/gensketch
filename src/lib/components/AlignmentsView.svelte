@@ -4,15 +4,19 @@
   import {
     getAlignments,
     getFocusedRegion,
+    getGridFocus,
     listenForAlignmentsUpdateQueued,
     listenForAlignmentsUpdated,
+    listenForGridFocusUpdated,
     listenForRegionBuffering,
     listenForRegionPanned,
     listenForRegionZoomed,
+    updateGridFocus,
   } from "@lib/backend";
   import type {
     AlignmentsUpdatedPayload,
     FocusedRegionUpdatedPayload,
+    GridCoord,
     RegionBufferingPayload,
   } from "@lib/bindings";
   import Spinner from "@lib/components/Spinner.svelte";
@@ -30,6 +34,7 @@
   let canvas: HTMLDivElement;
   let scene: AlignedReadsScene | null = null;
   let isLoading: boolean = true;
+  let isFocused: boolean = false;
   $: canvasWidth, canvasHeight, handleCanvasResize();
 
   const handleCanvasResize = () => {
@@ -44,26 +49,55 @@
     scene.draw();
   };
 
+  const handleClick = () => {
+    updateGridFocus({ trackId, splitId }).catch((err) => {
+      LOG.error(`Failed to update grid focus: ${err}`);
+    });
+  };
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (scene === null || document.activeElement?.tagName === "INPUT" || !isFocused) {
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        scene.scroll(0.1);
+        break;
+      case "ArrowUp": {
+        scene.scroll(-0.1);
+        break;
+      }
+    }
+  };
+
   onMount(async () => {
     scene = new AlignedReadsScene({
       canvas,
       dim: { width: canvasWidth, height: canvasHeight },
       styles: $USER_CONFIG_STORE!.styles,
+      handleClick,
     });
     handleCanvasResize();
-    Promise.all([getAlignments({ trackId, splitId }), getFocusedRegion(splitId)]).then((values) => {
+    Promise.all([
+      getAlignments({ trackId, splitId }),
+      getFocusedRegion(splitId),
+      getGridFocus(),
+    ]).then((values) => {
       LOG.debug(
         `Track=${trackId}, split=${splitId} received ${values[0].rows.length} rows of alignments from backend`
       );
       isLoading = false;
       scene!.setState({ alignments: values[0], focusedRegion: values[1] });
       scene!.draw();
+      handleGridFocusUpdate(values[2]);
     });
+    window.addEventListener("keydown", handleKeyDown, false);
   });
 
   onDestroy(async () => {
     scene?.destroy();
     LOG.debug("Destroyed AlignmentsView PIXI application");
+    window.removeEventListener("keydown", handleKeyDown, false);
   });
 
   const handleAlignmentsUpdated = (payload: AlignmentsUpdatedPayload): void => {
@@ -102,6 +136,14 @@
     }
   };
 
+  const handleGridFocusUpdate = (payload: GridCoord): void => {
+    if (payload.trackId === trackId && payload.splitId === splitId && !isFocused) {
+      isFocused = true;
+    } else if ((payload.trackId !== trackId || payload.splitId !== splitId) && isFocused) {
+      isFocused = false;
+    }
+  };
+
   listenForAlignmentsUpdated((event) => {
     handleAlignmentsUpdated(event.payload);
     scene?.draw();
@@ -111,6 +153,7 @@
   listenForRegionBuffering((event) => handleRegionBuffering(event.payload));
   listenForRegionPanned((event) => handleAlignmentsPanned(event.payload));
   listenForRegionZoomed((event) => handleAlignmentsZoomed(event.payload));
+  listenForGridFocusUpdated((event) => handleGridFocusUpdate(event.payload));
 </script>
 
 <div

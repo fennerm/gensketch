@@ -5,7 +5,7 @@ use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use rayon::prelude::*;
-use std::time::{Duration, Instant};
+use serde::{Deserialize, Serialize};
 
 use crate::alignments::stack_reader::StackReader;
 use crate::bio_util::genomic_coordinates::GenomicRegion;
@@ -18,12 +18,19 @@ use crate::interface::split::{BoundState, Split, SplitId};
 use crate::interface::track::{AlignmentTrack, Track, TrackId};
 use crate::util::Direction;
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GridCoord {
+    track_id: Option<TrackId>,
+    split_id: SplitId,
+}
+
 #[derive(Debug)]
 pub struct SplitGrid {
     pub splits: DashMap<SplitId, RwLock<Split>>,
     pub tracks: DashMap<TrackId, RwLock<Track>>,
     pub reference: RwLock<ReferenceSequence>,
-    pub focused_split: RwLock<SplitId>,
+    pub focus: RwLock<GridCoord>,
     alignments: DashMap<(TrackId, SplitId), RwLock<StackReader>>,
     max_render_window: RwLock<u64>,
 }
@@ -41,11 +48,11 @@ impl SplitGrid {
             max_render_window,
             seq_length,
         )?;
-        let focused_split = RwLock::new(split.id.clone());
+        let focus = RwLock::new(GridCoord { track_id: None, split_id: split.id.clone() });
         splits.insert(split.id, RwLock::new(split));
         let alignments = DashMap::new();
         let max_render_window = RwLock::new(max_render_window);
-        Ok(Self { splits, tracks, reference, alignments, max_render_window, focused_split })
+        Ok(Self { splits, tracks, reference, alignments, max_render_window, focus })
     }
 
     pub fn set_max_render_window(&self, max_render_window: u64) -> Result<()> {
@@ -157,6 +164,10 @@ impl SplitGrid {
         self.tracks.insert(track.id(), RwLock::new(track));
         self.init_track_alignments(&track_id)?;
         let track = self.tracks.get(&track_id).unwrap();
+        if self.tracks.len() == 1 {
+            self.focus.write().track_id = Some(track.read().id().clone());
+            event_emitter.emit(Event::GridFocusUpdated, &*self.focus.read())?;
+        }
         event_emitter.emit(Event::TrackAdded, &*track.read())?;
         Ok(track_id)
     }
@@ -165,8 +176,8 @@ impl SplitGrid {
         let focused_region;
         if self.splits.len() > 0 {
             focused_region = self
-                .get_split(&self.focused_split.read())
-                .context(format!("Failed to find split id={}", &self.focused_split.read()))?
+                .get_split(&self.focus.read().split_id)
+                .context(format!("Failed to find split id={}", &self.focus.read().split_id))?
                 .read()
                 .focused_region
                 .clone();
@@ -192,7 +203,7 @@ impl SplitGrid {
             *self.max_render_window.read(),
             seq_length,
         )?;
-        *self.focused_split.write() = split.id.clone();
+        self.focus.write().split_id = split.id.clone();
         let split_id = split.id.clone();
         self.splits.insert(split.id, RwLock::new(split));
         let tracks_info: Vec<(TrackId, PathBuf)> = self
@@ -212,7 +223,7 @@ impl SplitGrid {
             .collect::<Result<_>>()?;
         let split = self.splits.get(&split_id).unwrap();
         event_emitter.emit(Event::SplitAdded, &*split.read())?;
-        event_emitter.emit(Event::FocusedSplitUpdated, &split_id)?;
+        event_emitter.emit(Event::GridFocusUpdated, &split_id)?;
         Ok(split_id)
     }
 
@@ -221,7 +232,7 @@ impl SplitGrid {
         event_emitter: &E,
         direction: &Direction,
     ) -> Result<()> {
-        let focused_split_id = self.focused_split.read().clone();
+        let focused_split_id = self.focus.read().split_id.clone();
         let mut updated_region = self.get_split(&focused_split_id)?.read().focused_region.clone();
         let mut panned_bp = updated_region.len() / 10 as u64;
         match direction {
@@ -244,6 +255,19 @@ impl SplitGrid {
             }
         };
         self.update_focused_region(event_emitter, &focused_split_id, updated_region)?;
+        Ok(())
+    }
+
+    pub fn update_grid_focus<E: EmitEvent>(
+        &self,
+        event_emitter: &E,
+        grid_coord: GridCoord,
+    ) -> Result<()> {
+        if grid_coord == *self.focus.read() {
+            return Ok(());
+        }
+        *self.focus.write() = grid_coord;
+        event_emitter.emit(Event::GridFocusUpdated, self.focus.read().clone())?;
         Ok(())
     }
 
@@ -312,11 +336,7 @@ impl SplitGrid {
         };
 
         // TODO Emit event if error is encountered for a particular track
-        let start = Instant::now();
         self.update_split_alignments(&split_id)?;
-        let duration = start.elapsed();
-
-        log::debug!("Time elapsed in update_split_alignments() is: {:?}", duration);
 
         for entry in self.tracks.iter() {
             let track_id = entry.key().clone();
@@ -455,13 +475,17 @@ mod tests {
     fn test_add_track() {
         let test_state = init_basic_split_grid();
         assert_eq!(test_state.grid.tracks.len(), 1);
-        test_state.grid.add_track(&test_state.event_emitter, test_state.bam_path.clone()).unwrap();
+        let track_id = test_state
+            .grid
+            .add_track(&test_state.event_emitter, test_state.bam_path.clone())
+            .unwrap();
         assert_eq!(test_state.grid.tracks.len(), 2);
         let payload = test_state.event_emitter.pop_event(&Event::TrackAdded);
         assert_eq!(
             payload.get("filePath").unwrap().as_str().unwrap(),
             test_state.bam_path.to_str().unwrap()
         );
+        assert_eq!(track_id, test_state.grid.focus.read().track_id.unwrap());
         assert_eq!(payload.get("id").unwrap().as_str().unwrap(), test_state.track_id.to_string());
     }
 
