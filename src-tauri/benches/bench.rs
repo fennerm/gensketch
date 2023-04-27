@@ -8,7 +8,8 @@ mod perf;
 
 fn bam_read() {
     let backend = Backend::new().unwrap();
-    backend.initialize().unwrap();
+    let event_emitter = StubEventEmitter::new();
+    backend.initialize(&event_emitter).unwrap();
     let event_emitter = StubEventEmitter::new();
     let file_path = get_test_data_path("fake-genome.reads.bam");
     backend.split_grid.read().add_track(&event_emitter, file_path).unwrap();
