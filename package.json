@@ -36,15 +36,18 @@
         "test": "npm run test-backend; npm run test-frontend"
     },
     "dependencies": {
+        "@iconify/svelte": "^3.1.3",
         "@pixi/layers": "^2.0.1",
         "@tauri-apps/api": "^1.2.0",
         "bigint-polyfill": "^0.1.0",
+        "path-browserify": "^1.0.1",
         "pixi-viewport": "^5.0.1",
         "pixi.js": "^7.1.3",
         "tauri-plugin-log-api": "github:tauri-apps/tauri-plugin-log",
         "uuid": "^9.0.0"
     },
     "devDependencies": {
+        "@iconify/types": "^2.0.0",
         "@sveltejs/adapter-auto": "^2.0.0",
         "@sveltejs/adapter-static": "^1.0.0-next.50",
         "@sveltejs/kit": "^1.5.0",
@@ -66,6 +69,7 @@
         "eslint-plugin-node": "^11.1.0",
         "eslint-plugin-svelte": "^2.21.0",
         "jest": "^29.5.0",
+        "jest-environment-jsdom": "^29.5.0",
         "prettier": "^2.7.1",
         "prettier-eslint": "^15.0.1",
         "prettier-eslint-cli": "^7.1.0",

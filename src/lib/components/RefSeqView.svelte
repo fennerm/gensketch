@@ -85,6 +85,8 @@
       LOG.debug(`Panning focused sequence to ${to1IndexedString(payload.genomicRegion)}`);
       isLoading = false;
       scene.setState({ focusedRegion: payload.genomicRegion });
+      // TODO this draw shouldn't be necessary
+      scene?.draw();
     }
   };
 

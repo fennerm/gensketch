@@ -63,3 +63,7 @@ export const hexToString = (hex: number): string => {
   hexString = "#" + hexString;
   return hexString;
 };
+
+export const isString = (value: unknown): value is string => {
+  return typeof value === "string";
+};

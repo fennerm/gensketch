@@ -13,6 +13,7 @@
   <Track
     id={track.id}
     name={track.name}
+    filePath={track.filePath}
     heightPct={track.heightPct}
     {splits}
     {handleVerticalDividerDrag}

@@ -5,6 +5,7 @@
 
   export let name: string;
   export let id: string;
+  export let filePath: string;
   export let heightPct: number;
   export let splits: SplitState[];
   export let handleVerticalDividerDrag: DividerDragHandler;
@@ -16,7 +17,7 @@
   </div>
   <div class="split-container">
     {#each splits as split, splitIndex}
-      <AlignmentsView trackId={id} splitId={split.id} widthPct={split.widthPct} />
+      <AlignmentsView trackId={id} splitId={split.id} {filePath} widthPct={split.widthPct} />
       {#if splitIndex < splits.length}
         <GridDivider
           orientation="vertical"
@@ -33,6 +34,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
+    height: 100%;
   }
 
   .track-label {

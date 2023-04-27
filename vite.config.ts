@@ -28,6 +28,7 @@ export default defineConfig({
     alias: {
       // Using @lib instead of the default $lib because it works better with VS code auto import
       "@lib": path.resolve("./src/lib"),
+      "path": "path-browserify",
     },
   },
 });

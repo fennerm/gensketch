@@ -25,14 +25,16 @@ pub struct NucleotideColorConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorConfig {
-    pub background: u32,
-    pub foreground: u32,
     pub alignment: u32,
-    pub track_label_background: u32,
-    pub secondary_text: u32,
-    pub nucleotide_colors: NucleotideColorConfig,
+    pub background: u32,
     pub deletion: u32,
+    pub error: u32,
+    pub error_background: u32,
+    pub foreground: u32,
     pub insertion: u32,
+    pub nucleotide_colors: NucleotideColorConfig,
+    pub secondary_text: u32,
+    pub track_label_background: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -75,10 +77,12 @@ pub fn read_user_config() -> Result<UserConfig> {
     let config = UserConfig {
         general: GeneralConfig { max_render_window: 10000 },
         styles: StyleConfig {
-            fonts: FontConfig { tooltip_font_size: 18 },
+            fonts: FontConfig { tooltip_font_size: 12 },
             colors: ColorConfig {
                 alignment: parse_hex("#969592")?,
                 background: parse_hex("#f2f2f2")?,
+                error: parse_hex("#e63519")?,
+                error_background: parse_hex("#f7c2ba")?,
                 foreground: parse_hex("#222222")?,
                 track_label_background: parse_hex("#243f47")?,
                 secondary_text: parse_hex("#f2f2f2")?,

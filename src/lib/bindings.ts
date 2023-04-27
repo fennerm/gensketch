@@ -28,7 +28,7 @@ export type AlignmentStackKind = { type: "alignedPairKind" } & AlignmentStack<Al
 
 export interface AlignmentTrackData {
   id: string;
-  bamPath: string;
+  filePath: string;
   name: string;
 }
 
@@ -141,6 +141,8 @@ export type NucleotideColorConfig = {
 export interface ColorConfig {
   background: number;
   text: number;
+  error: number;
+  errorBackground: number;
   alignment: number;
   trackLabelBackground: number;
   secondaryText: number;

@@ -1,4 +1,11 @@
+<!--
+  Wraps a PIXI application for rendering alignments in the split grid.
+
+  Corresponds to a single 'cell' in the split grid (i.e a specific split in a specific track).
+-->
 <script lang="ts">
+  import path from "path";
+
   import { onDestroy, onMount } from "svelte";
 
   import {
@@ -14,8 +21,10 @@
     updateGridFocus,
   } from "@lib/backend";
   import type {
+    AlignmentStackKind,
     AlignmentsUpdatedPayload,
     FocusedRegionUpdatedPayload,
+    GenomicRegion,
     GridCoord,
     RegionBufferingPayload,
   } from "@lib/bindings";
@@ -24,29 +33,117 @@
   import { to1IndexedString } from "@lib/genomicCoordinates";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
+  import { defaultErrorHandler } from "@lib/errorHandling";
+  import DisplayError from "@lib/components/DisplayError.svelte";
 
   export let trackId: string;
   export let splitId: string;
+  export let filePath: string;
+
+  // Width of the component as a percentage of the split grid's width
   export let widthPct: number;
 
+  // Ref to the HTML canvas element that PIXI will render to
+  let canvas: HTMLDivElement;
+
+  // Canvas element dimensions in pixels
   let canvasWidth: number;
   let canvasHeight: number;
-  let canvas: HTMLDivElement;
+
   let scene: AlignedReadsScene | null = null;
+
+  // True if alignments are currently being loaded from the backend
   let isLoading: boolean = true;
+
+  // At least one alignments view is always focused unless the focused view is destroyed. View
+  // becomes focused either by being clicked, or by being the most recently opened view.
   let isFocused: boolean = false;
+
+  let errorMsg: string | null = null;
+
   $: canvasWidth, canvasHeight, handleCanvasResize();
 
-  const handleCanvasResize = () => {
+  /**
+   * Render the currently loaded alignments to the screen.
+   */
+  const draw = (): void => {
     if (scene === null) {
       return;
     }
-    LOG.debug("Detected window resize");
-    scene.setState({
-      viewportWidth: canvasWidth,
-      viewportHeight: canvasHeight,
-    });
-    scene.draw();
+    try {
+      scene.draw();
+    } catch (error) {
+      errorMsg = `Failed to draw alignments for ${path.basename(filePath)}`;
+      defaultErrorHandler({
+        msg: `Failed to draw alignments view: ${error}`,
+        displayAlert: false,
+        rethrowError: error,
+      });
+    }
+  };
+
+  /**
+   * Update PIXI application state with new data from backend.
+   */
+  const updateData = ({
+    alignments,
+    focusedRegion,
+  }: {
+    alignments?: AlignmentStackKind;
+    focusedRegion?: GenomicRegion;
+  }): void => {
+    isLoading = false;
+    try {
+      scene!.setState({ focusedRegion: focusedRegion, alignments: alignments });
+      errorMsg = null;
+    } catch (error) {
+      errorMsg = `Failed to update alignments for ${path.basename(filePath)}`;
+      defaultErrorHandler({
+        msg: `Failed to update alignments view: ${error}`,
+        alertMsg: `Failed to update alignments for ${path.basename(filePath)}`,
+        rethrowError: error,
+      });
+    }
+  };
+
+  /**
+   * Initialize the PIXI application which renders the alignments to the screen.
+   */
+  const initScene = (): void => {
+    try {
+      scene = new AlignedReadsScene({
+        canvas,
+        dim: { width: canvasWidth, height: canvasHeight },
+        styles: $USER_CONFIG_STORE!.styles,
+        handleClick,
+      });
+    } catch (error) {
+      errorMsg = `Failed to initialize alignment viewer for ${path.basename(filePath)}`;
+      defaultErrorHandler({
+        msg: `Failed to initialize alignments view for track=${trackId}, split=${splitId}: ${error}`,
+        displayAlert: false,
+        rethrowError: error,
+      });
+    }
+  };
+
+  /**
+   * If the canvas element is resized, the PIXI application needs to be resized as well
+   */
+  const handleCanvasResize = (): void => {
+    if (scene === null) {
+      return;
+    }
+    LOG.debug(`Detected window resize, resizing alignments view to ${canvasWidth}x${canvasHeight}`);
+
+    try {
+      scene.setState({
+        viewportWidth: canvasWidth,
+        viewportHeight: canvasHeight,
+      });
+    } catch (error) {
+      LOG.error(`Failed to resize alignments view: ${error}`);
+    }
   };
 
   const handleClick = () => {
@@ -70,72 +167,6 @@
     }
   };
 
-  onMount(async () => {
-    scene = new AlignedReadsScene({
-      canvas,
-      dim: { width: canvasWidth, height: canvasHeight },
-      styles: $USER_CONFIG_STORE!.styles,
-      handleClick,
-    });
-    handleCanvasResize();
-    Promise.all([
-      getAlignments({ trackId, splitId }),
-      getFocusedRegion(splitId),
-      getGridFocus(),
-    ]).then((values) => {
-      LOG.debug(
-        `Track=${trackId}, split=${splitId} received ${values[0].rows.length} rows of alignments from backend`
-      );
-      isLoading = false;
-      scene!.setState({ alignments: values[0], focusedRegion: values[1] });
-      scene!.draw();
-      handleGridFocusUpdate(values[2]);
-    });
-    window.addEventListener("keydown", handleKeyDown, false);
-  });
-
-  onDestroy(async () => {
-    scene?.destroy();
-    LOG.debug("Destroyed AlignmentsView PIXI application");
-    window.removeEventListener("keydown", handleKeyDown, false);
-  });
-
-  const handleAlignmentsUpdated = (payload: AlignmentsUpdatedPayload): void => {
-    if (scene !== null && splitId === payload.splitId && trackId === payload.trackId) {
-      LOG.debug(
-        `Handling alignments update (focusedRegion=${to1IndexedString(
-          payload.focusedRegion
-        )}, rows=${payload.alignments.rows.length})`
-      );
-      isLoading = false;
-      scene!.setState({ focusedRegion: payload.focusedRegion, alignments: payload.alignments });
-    }
-  };
-
-  const handleRegionBuffering = (payload: RegionBufferingPayload): void => {
-    if (payload.splitId === splitId) {
-      isLoading = true;
-      scene?.clear();
-    }
-  };
-
-  const handleAlignmentsPanned = (payload: FocusedRegionUpdatedPayload): void => {
-    if (scene !== null && payload.splitId === splitId) {
-      LOG.debug(`Panning alignments to ${to1IndexedString(payload.genomicRegion)}`);
-      isLoading = false;
-      scene.setState({ focusedRegion: payload.genomicRegion });
-    }
-  };
-
-  const handleAlignmentsZoomed = (payload: FocusedRegionUpdatedPayload): void => {
-    if (payload.splitId === splitId) {
-      LOG.debug(`Zooming alignments to ${to1IndexedString(payload.genomicRegion)}`);
-      isLoading = false;
-      scene?.setState({ focusedRegion: payload.genomicRegion });
-      scene?.draw();
-    }
-  };
-
   const handleGridFocusUpdate = (payload: GridCoord): void => {
     if (payload.trackId === trackId && payload.splitId === splitId && !isFocused) {
       isFocused = true;
@@ -144,9 +175,51 @@
     }
   };
 
+  const fetchInitialData = (): void => {
+    Promise.all([
+      getAlignments({ trackId, splitId }),
+      getFocusedRegion(splitId),
+      getGridFocus(),
+    ]).then(([alignments, focusedRegion, gridFocus]) => {
+      updateData({ alignments, focusedRegion });
+      draw();
+      handleGridFocusUpdate(gridFocus);
+    });
+  };
+
+  const handleAlignmentsUpdated = (payload: AlignmentsUpdatedPayload): void => {
+    if (scene !== null && splitId === payload.splitId && trackId === payload.trackId) {
+      updateData({ alignments: payload.alignments, focusedRegion: payload.focusedRegion });
+    }
+  };
+
+  const handleRegionBuffering = (payload: RegionBufferingPayload): void => {
+    if (scene !== null && payload.splitId === splitId) {
+      isLoading = true;
+      scene.clear();
+    }
+  };
+
+  const handleAlignmentsPanned = (payload: FocusedRegionUpdatedPayload): void => {
+    if (scene !== null && payload.splitId === splitId) {
+      LOG.debug(`Panning alignments to ${to1IndexedString(payload.genomicRegion)}`);
+      updateData({ focusedRegion: payload.genomicRegion });
+    }
+  };
+
+  const handleAlignmentsZoomed = (payload: FocusedRegionUpdatedPayload): void => {
+    if (scene !== null && payload.splitId === splitId) {
+      LOG.debug(`Zooming alignments to ${to1IndexedString(payload.genomicRegion)}`);
+      updateData({ focusedRegion: payload.genomicRegion });
+      // TODO Remove this draw call and just zoom the viewport instead
+      // I've futzed around with updating this.viewport.scale but couldn't get it working.
+      draw();
+    }
+  };
+
   listenForAlignmentsUpdated((event) => {
     handleAlignmentsUpdated(event.payload);
-    scene?.draw();
+    draw();
   });
 
   listenForAlignmentsUpdateQueued((event) => handleAlignmentsUpdated(event.payload));
@@ -154,6 +227,18 @@
   listenForRegionPanned((event) => handleAlignmentsPanned(event.payload));
   listenForRegionZoomed((event) => handleAlignmentsZoomed(event.payload));
   listenForGridFocusUpdated((event) => handleGridFocusUpdate(event.payload));
+
+  onMount(async () => {
+    initScene();
+    fetchInitialData();
+    window.addEventListener("keydown", handleKeyDown);
+  });
+
+  onDestroy(async () => {
+    window.removeEventListener("keydown", handleKeyDown);
+    scene?.destroy();
+    LOG.debug("Destroyed AlignmentsView PIXI application");
+  });
 </script>
 
 <div
@@ -162,7 +247,9 @@
   bind:offsetHeight={canvasHeight}
   bind:offsetWidth={canvasWidth}
 >
-  {#if isLoading}
+  {#if errorMsg !== null}
+    <DisplayError message={errorMsg} />
+  {:else if isLoading}
     <Spinner />
   {/if}
   <div
@@ -175,7 +262,6 @@
 <style>
   .alignments-view {
     height: 100%;
-    overflow: hidden;
   }
 
   .alignments-canvas {

@@ -132,7 +132,6 @@ pub fn update_grid_focus(
     state: tauri::State<Backend>,
     grid_coord: GridCoord,
 ) -> CommandResult<()> {
-    log::warn!("Updating grid focus");
     let event_emitter = EventEmitter::new(&app);
     state.split_grid.read().update_grid_focus(&event_emitter, grid_coord)?;
     Ok(())

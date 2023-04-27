@@ -173,6 +173,12 @@ class AlignedReadTooltip extends PIXI.Container {
 export interface AlignedReadsSceneParams extends SceneParams {
   handleClick: () => void;
 }
+export interface AlignedReadsSceneState {
+  alignments: AlignmentStackKind | null;
+  focusedRegion: GenomicRegion | null;
+  viewportWidth: number;
+  viewportHeight: number;
+}
 
 // I considered breaking this up into multiple smaller container classes (e.g one for aligned read,
 // one for aligned pair, etc) but it don't think that would play nice with our DrawPoolGroup
@@ -659,6 +665,7 @@ export class AlignedReadsScene extends Scene {
   };
 
   #displayTooltip = ({ read, pos }: { readonly read: AlignedRead; pos: Position }) => {
+    // TODO fix tooltip positioning when fields are wide. Perhaps only happening in wayland
     this.tooltip.setRead(read);
     this.tooltip.x = pos.x;
     this.tooltip.y = pos.y;
@@ -766,39 +773,37 @@ export class AlignedReadsScene extends Scene {
   };
 
   setState = ({
-    alignments,
-    focusedRegion,
-    viewportWidth,
-    viewportHeight,
-  }: {
-    alignments?: AlignmentStackKind;
-    focusedRegion?: GenomicRegion;
-    viewportWidth?: number;
-    viewportHeight?: number;
-  }): void => {
-    // TODO use dynamic default args like RefSeqScene
-    if (alignments !== undefined) {
-      this.alignments = alignments;
-    }
-    if (focusedRegion !== undefined) {
-      if (focusedRegion !== this.focusedRegion) {
-        this.#destroyTooltip();
-      }
-      this.focusedRegion = focusedRegion;
-    }
+    alignments = this.alignments,
+    focusedRegion = this.focusedRegion,
+    viewportWidth = this.dim.width,
+    viewportHeight = this.dim.height,
+  }: Partial<AlignedReadsSceneState>): void => {
+    this.alignments = alignments;
+    this.focusedRegion = focusedRegion;
     if (this.alignments === null || this.focusedRegion === null) {
       return;
     }
-    if (viewportWidth === undefined) {
-      viewportWidth = this.dim.width;
-    } else if (viewportWidth !== this.dim.width) {
+    if (
+      focusedRegion !== this.focusedRegion ||
+      viewportWidth !== this.dim.width ||
+      viewportHeight !== this.dim.height
+    ) {
       this.#destroyTooltip();
     }
-    if (viewportHeight === undefined) {
-      viewportHeight = this.dim.height;
-    } else if (viewportHeight !== this.dim.height) {
-      this.#destroyTooltip();
+
+    // pixi-viewport doesn't seem to scale its contents correctly in the following case:
+    // 1. The viewport dimensions are equal to the buffer dimensions AND
+    // 2. The window is resized to be larger than the viewport dimensions
+    // To work around this, we scale the viewport contents manually.
+    // Not sure if this is a bug in pixi-viewport or our implementation.
+    let scale = 1;
+    if (
+      viewportWidth > this.dim.width &&
+      Math.round(this.dim.width) === Math.round(this.bufferDim.width)
+    ) {
+      scale = viewportWidth / this.dim.width;
     }
+
     this.resize({ width: viewportWidth, height: viewportHeight });
     this.focusedRegionLength = Number(getLength(this.focusedRegion.interval));
     this.bufferedRegionLength = Number(getLength(this.alignments.bufferedRegion.interval));
@@ -806,8 +811,8 @@ export class AlignedReadsScene extends Scene {
     this.readHeight = Math.min(40 * this.nucWidth, MAX_ALIGNMENT_HEIGHT);
     this.rowHeight = this.readHeight + 2;
     this.bufferDim = {
-      width: this.nucWidth * this.bufferedRegionLength,
-      height: this.rowHeight * this.alignments.rows.length,
+      width: Math.round(this.nucWidth * this.bufferedRegionLength),
+      height: Math.round(this.rowHeight * this.alignments.rows.length),
     };
     this.viewport.resize(
       this.dim.width,
@@ -815,6 +820,9 @@ export class AlignedReadsScene extends Scene {
       this.bufferDim.width,
       this.bufferDim.height
     );
+    this.viewport.scale = { x: scale, y: scale };
+    this.tooltip.scale = { x: 1, y: 1 };
+
     this.viewportOffset = {
       x:
         Number(this.focusedRegion.interval.start - this.alignments.bufferedRegion.interval.start) *

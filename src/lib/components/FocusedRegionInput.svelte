@@ -27,7 +27,9 @@
       .then((refseq) => {
         seqLengths = refseq.seqLengths;
       })
-      .catch(defaultErrorHandler);
+      .catch((error) =>
+        defaultErrorHandler({ msg: `${error}`, alertMsg: "Error loading reference sequence file" })
+      );
   });
 
   const handleFocusedRegionUpdate = (): void => {

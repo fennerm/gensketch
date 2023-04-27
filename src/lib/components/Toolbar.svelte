@@ -15,7 +15,9 @@
           addAlignmentTrack({ filePath: fileName }).catch(defaultErrorHandler)
         );
       })
-      .catch((error) => defaultErrorHandler(error, "Failed to open file picker dialog"));
+      .catch((error) =>
+        defaultErrorHandler({ msg: `${error}`, alertMsg: "Failed to open file picker dialog" })
+      );
   };
 
   const newSplit = (): void => {
