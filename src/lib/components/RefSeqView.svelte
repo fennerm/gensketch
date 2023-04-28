@@ -110,8 +110,8 @@
 </script>
 
 <div
+  class="refseq-view"
   style:width={`${widthPct}%`}
-  style:height="100%"
   bind:offsetHeight={canvasHeight}
   bind:offsetWidth={canvasWidth}
 >
@@ -126,4 +126,8 @@
 </div>
 
 <style>
+  .refseq-view {
+    height: 100%;
+    overflow: hidden;
+  }
 </style>

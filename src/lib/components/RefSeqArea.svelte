@@ -3,13 +3,10 @@
 <script lang="ts">
   import GridDivider from "@lib/components/GridDivider.svelte";
   import RefSeqView from "@lib/components/RefSeqView.svelte";
-  import type { SplitState } from "@lib/components/SplitGrid.types";
-
-  import type { DividerDragHandler } from "./SplitGrid.types";
+  import type { DividerDragHandler, SplitState } from "@lib/components/SplitGrid.types";
 
   export let splits: SplitState[] = [];
   export let handleVerticalDividerDrag: DividerDragHandler;
-  // TODO fix misplaced grid divider (off by 1 px)
 </script>
 
 <div class="ref-seq-area">

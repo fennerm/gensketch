@@ -29,8 +29,8 @@ Divider between tracks/splits in the split grid which can be dragged to resize.
   let isDragging: boolean = false;
   let mouseX: number | undefined = undefined;
   let mouseY: number | undefined = undefined;
-  $: hoverX = orientation === "horizontal" ? undefined : mouseX;
-  $: hoverY = orientation === "horizontal" ? mouseY : undefined;
+  $: draggedX = orientation === "horizontal" ? undefined : mouseX;
+  $: draggedY = orientation === "horizontal" ? mouseY : undefined;
 
   const handleMouseMove = (event: MouseEvent): void => {
     window.requestAnimationFrame(() => {
@@ -74,8 +74,8 @@ Divider between tracks/splits in the split grid which can be dragged to resize.
       class="dragged-divider"
       style:height
       style:width
-      style:left={`${hoverX}px`}
-      style:top={`${hoverY}px`}
+      style:left={`${draggedX}px`}
+      style:top={`${draggedY}px`}
     />
   {/if}
 </div>

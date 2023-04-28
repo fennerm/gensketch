@@ -275,6 +275,7 @@
 <style>
   .alignments-view {
     height: 100%;
+    overflow: hidden;
   }
 
   .alignments-canvas {
