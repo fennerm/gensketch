@@ -1,3 +1,5 @@
+<svelte:options immutable={true} />
+
 <button {...$$restProps} on:click>
   <slot />
 </button>

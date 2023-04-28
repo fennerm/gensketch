@@ -1,5 +1,7 @@
+<svelte:options immutable={true} />
+
 <script lang="ts">
-  import { SvelteComponent, afterUpdate, onMount } from "svelte";
+  import { afterUpdate, onMount } from "svelte";
 
   import { getSplits, listenForSplitAdded, listenForTrackAdded } from "@lib/backend";
   import type { AlignmentTrackData, SplitData } from "@lib/bindings";
@@ -16,7 +18,7 @@
   // Minimum size that a split or track can be resized as percent of the split grid
   const minCellPct = 2;
 
-  let trackArea: SvelteComponent;
+  let trackArea: HTMLDivElement;
   let splits: SplitState[] = [];
   let tracks: TrackState[] = [];
   let trackAreaHeight: number;
@@ -104,10 +106,14 @@
   };
 
   const getMouseYPosPct = (mouseYPos: number) => {
+    LOG.debug(
+      `mouseYPos=${mouseYPos}, offsetTop=${offsetTop}, trackAreaHeight=${trackAreaHeight}}`
+    );
     return ((mouseYPos - offsetTop) / trackAreaHeight) * 100;
   };
 
   const getMouseXPosPct = (mouseXPos: number) => {
+    LOG.debug(`mouseXPos=${mouseXPos}, offsetLeft=${offsetLeft}, gridWidth=${gridWidth}`);
     return ((mouseXPos - offsetLeft) / gridWidth) * 100;
   };
 
@@ -115,18 +121,18 @@
     splits.map((split, index) => {
       split.widthPct = widths[index];
     });
-    splits = splits;
+    splits = [...splits];
   };
 
   const setTrackHeights = (heights: readonly number[]): void => {
     tracks.map((track, index) => {
       track.heightPct = heights[index];
     });
-    tracks = tracks;
+    tracks = [...tracks];
   };
 
-  const handleHorizontalDividerDrag: DividerDragHandler = ({ mouseEvent, dividerIndex }) => {
-    const mouseYPos = mouseEvent.clientY;
+  const handleHorizontalDividerDrag: DividerDragHandler = ({ mousePos, dividerIndex }) => {
+    const mouseYPos = mousePos.y;
     const mousePosPct = getMouseYPosPct(mouseYPos);
     const currentDimensions = Array.from(tracks.map((track) => track.heightPct));
     const updatedTrackHeights = adjustDimensions({
@@ -142,8 +148,8 @@
     setTrackHeights(updatedTrackHeights);
   };
 
-  const handleVerticalDividerDrag: DividerDragHandler = ({ mouseEvent, dividerIndex }) => {
-    const mouseXPos = mouseEvent.clientX;
+  const handleVerticalDividerDrag: DividerDragHandler = ({ mousePos, dividerIndex }) => {
+    const mouseXPos = mousePos.x;
     const mousePosPct = getMouseXPosPct(mouseXPos);
     const currentDimensions = Array.from(splits.map((split) => split.widthPct));
     const updatedSplitWidths = adjustDimensions({
@@ -159,35 +165,39 @@
     setSplitWidths(updatedSplitWidths);
   };
 
+  listenForSplitAdded((event) => handleNewSplit(event.payload));
+  listenForTrackAdded((event) => handleNewTrack(event.payload));
+
   afterUpdate(() => {
     if (trackArea !== undefined) {
-      gridWidth = trackArea.offsetWidth;
-      trackAreaHeight = trackArea.offsetHeight;
       offsetLeft = trackArea.offsetLeft;
       offsetTop = trackArea.offsetTop;
     }
   });
-
-  listenForSplitAdded((event) => handleNewSplit(event.payload));
-  listenForTrackAdded((event) => handleNewTrack(event.payload));
 </script>
 
 <div class="split-grid">
   {#if assetsLoaded}
     <SplitToolbar {splits} {handleVerticalDividerDrag} />
     <RefSeqArea {splits} {handleVerticalDividerDrag} />
-    <TrackArea
+    <div
+      class="track-area-wrapper"
       bind:this={trackArea}
-      {tracks}
-      {splits}
-      {handleHorizontalDividerDrag}
-      {handleVerticalDividerDrag}
-    />
+      bind:offsetHeight={trackAreaHeight}
+      bind:offsetWidth={gridWidth}
+    >
+      <TrackArea {tracks} {splits} {handleHorizontalDividerDrag} {handleVerticalDividerDrag} />
+    </div>
     <!-- TODO add loading wheel while assets loading-->
   {/if}
 </div>
 
 <style>
+  .track-area-wrapper {
+    width: 100%;
+    height: 100%;
+  }
+
   .split-grid {
     display: flex;
     flex-grow: 1;

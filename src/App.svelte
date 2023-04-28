@@ -1,3 +1,5 @@
+<svelte:options immutable={true} />
+
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
@@ -8,6 +10,13 @@
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
   import { monkeyPatchBigInt } from "@lib/util";
+
+  // Maximum keyboard repeat rate for panning focused split. This is prevent the backend from
+  // getting overwhelmed when arrow keys are held down.
+  const keyRepeatRate = 50; // ms
+
+  // Timestamp of last keydown event which was not ignored
+  let lastKeyTime = 0;
 
   const updateTheme = (styles: StyleConfig) => {
     for (let [prop, color] of Object.entries(styles.colors)) {
@@ -28,6 +37,12 @@
   });
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    const now = performance.now();
+    if (now - lastKeyTime < keyRepeatRate) {
+      return;
+    }
+    lastKeyTime = now;
+
     switch (event.key) {
       case "ArrowLeft":
       case "ArrowRight": {

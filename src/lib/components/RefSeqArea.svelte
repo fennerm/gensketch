@@ -1,3 +1,5 @@
+<svelte:options immutable={true} />
+
 <script lang="ts">
   import GridDivider from "@lib/components/GridDivider.svelte";
   import RefSeqView from "@lib/components/RefSeqView.svelte";
@@ -7,6 +9,7 @@
 
   export let splits: SplitState[] = [];
   export let handleVerticalDividerDrag: DividerDragHandler;
+  // TODO fix misplaced grid divider (off by 1 px)
 </script>
 
 <div class="ref-seq-area">
@@ -15,8 +18,8 @@
     {#if splitIndex < splits.length}
       <GridDivider
         orientation="vertical"
-        dragHandler={(mouseEvent) =>
-          handleVerticalDividerDrag({ mouseEvent, dividerIndex: splitIndex })}
+        dragHandler={(mousePos) =>
+          handleVerticalDividerDrag({ mousePos, dividerIndex: splitIndex })}
       />
     {/if}
   {/each}

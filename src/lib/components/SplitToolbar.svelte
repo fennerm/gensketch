@@ -1,3 +1,5 @@
+<svelte:options immutable={true} />
+
 <script lang="ts">
   import GridDivider from "@lib/components/GridDivider.svelte";
   import type { DividerDragHandler } from "@lib/components/SplitGrid.types";
@@ -18,8 +20,8 @@
     {#if splitIndex != splits.length}
       <GridDivider
         orientation="vertical"
-        dragHandler={(mouseEvent) =>
-          handleVerticalDividerDrag({ mouseEvent, dividerIndex: splitIndex })}
+        dragHandler={(mousePos) =>
+          handleVerticalDividerDrag({ mousePos, dividerIndex: splitIndex })}
       />
     {/if}
   {/each}

@@ -30,7 +30,6 @@ import LOG from "@lib/logger";
 import type { Dimensions, Position } from "@lib/types";
 import { range } from "@lib/util";
 
-const MAX_ALIGNMENT_HEIGHT = 24;
 const READ_BODY_POOL = "readBody";
 const PAIR_LINE_POOL = "pairLine";
 const FORWARD_READ_CAP_POOL = "forwardReadCap";
@@ -199,6 +198,7 @@ export class AlignedReadsScene extends Scene {
   readHeight: number;
   rowHeight: number;
   layers: LayerGroup[];
+  isDragging: boolean;
 
   constructor(params: AlignedReadsSceneParams) {
     super({ ...params, layered: true });
@@ -227,9 +227,25 @@ export class AlignedReadsScene extends Scene {
     this.focusedRegionLength = 0;
     this.bufferedRegionLength = 0;
     this.nucWidth = 0;
-    this.readHeight = 0;
+    this.readHeight = 20;
     this.rowHeight = 0;
+    this.isDragging = false;
+    document.addEventListener("mousedown", this.#handleMouseDown);
   }
+
+  #dragHandler = (): void => {
+    this.isDragging = true;
+  };
+
+  #handleMouseDown = (): void => {
+    document.addEventListener("mousemove", this.#dragHandler);
+    document.addEventListener("mouseup", this.#handleMouseUp);
+  };
+
+  #handleMouseUp = (): void => {
+    document.removeEventListener("mousemove", this.#dragHandler);
+    document.removeEventListener("mouseup", this.#handleMouseUp);
+  };
 
   #initTooltip = (): AlignedReadTooltip => {
     const tooltip = new AlignedReadTooltip({ styles: this.styles, layer: this.layers[7] });
@@ -242,6 +258,7 @@ export class AlignedReadsScene extends Scene {
     this.pixiApp.destroy();
     this.textures.forwardReadCap.destroy();
     this.textures.reverseReadCap.destroy();
+    document.removeEventListener("mousedown", this.#handleMouseDown);
   };
 
   #initTriangleTexture = (): PIXI.RenderTexture => {
@@ -516,14 +533,12 @@ export class AlignedReadsScene extends Scene {
 
   #displayPairLine = ({
     pos,
-    readHeight,
     alignment,
   }: {
     readonly pos: Position;
-    readHeight: number;
     readonly alignment: PairedReads;
   }): void => {
-    const linePos = { x: pos.x, y: pos.y + readHeight / 2 };
+    const linePos = { x: pos.x, y: pos.y + this.readHeight / 2 };
     const dim = {
       width: Number(alignment.interval.end - alignment.interval.start) * this.nucWidth,
       height: 0.5,
@@ -531,41 +546,25 @@ export class AlignedReadsScene extends Scene {
     this.drawPool.draw(PAIR_LINE_POOL, { pos: linePos, dim });
   };
 
-  #displayMismatch = ({
-    nuc,
-    pos,
-    height,
-  }: {
-    nuc: string;
-    pos: Position;
-    height: number;
-  }): void => {
+  #displayMismatch = ({ nuc, pos }: { nuc: string; pos: Position }): void => {
     nuc = nuc !== "-" ? nuc : "GAP";
     if (this.nucWidth > DRAW_LETTER_THRESHOLD) {
       this.drawPool.draw(nuc + NUC_TEXT_SUFFIX, {
         pos,
-        fontSize: height - 2,
+        fontSize: this.readHeight - 2,
       });
     } else {
       this.drawPool.draw(nuc + NUC_RECT_SUFFIX, {
         pos,
-        dim: { width: this.nucWidth, height },
+        dim: { width: this.nucWidth, height: this.readHeight },
       });
     }
   };
 
-  #displayDeletion = ({
-    diff,
-    pos,
-    height,
-  }: {
-    diff: Deletion;
-    pos: Position;
-    height: number;
-  }): void => {
+  #displayDeletion = ({ diff, pos }: { diff: Deletion; pos: Position }): void => {
     this.drawPool.draw(DELETION_POOL, {
       pos,
-      dim: { width: this.nucWidth * Number(getLength(diff.interval)), height },
+      dim: { width: this.nucWidth * Number(getLength(diff.interval)), height: this.readHeight },
     });
     const deletionLength = Number(getLength(diff.interval));
     if (deletionLength < MIN_DELETION_LENGTH_FOR_LABEL) {
@@ -593,15 +592,7 @@ export class AlignedReadsScene extends Scene {
   };
 
   // Note that `pos` is the center of the insertion (not the left edge as with other variant types)
-  #displayInsertion = ({
-    diff,
-    pos,
-    height,
-  }: {
-    diff: Insertion;
-    pos: Position;
-    height: number;
-  }): void => {
+  #displayInsertion = ({ diff, pos }: { diff: Insertion; pos: Position }): void => {
     const insertionLength = diff.sequence.length;
     const labelText = insertionLength == 1 ? diff.sequence : String(insertionLength);
     const fontSize = this.readHeight - 4;
@@ -609,7 +600,7 @@ export class AlignedReadsScene extends Scene {
     const x = pos.x - width / 2;
     this.drawPool.draw(INSERTION_POOL, {
       pos: { x, y: pos.y },
-      dim: { width, height },
+      dim: { width, height: this.readHeight },
     });
     this.drawPool.draw(INSERTION_LABEL_POOL, {
       text: labelText,
@@ -618,47 +609,31 @@ export class AlignedReadsScene extends Scene {
     });
   };
 
-  #displaySoftClip = ({
-    diff,
-    pos,
-    height,
-  }: {
-    diff: SoftClip;
-    pos: Position;
-    height: number;
-  }): void => {
+  #displaySoftClip = ({ diff, pos }: { diff: SoftClip; pos: Position }): void => {
     range(diff.interval.start, diff.interval.end).forEach((basePos) => {
       const x = Number(basePos - this.focusedRegion!.interval.start) * this.nucWidth;
       const nuc = diff.sequence[Number(basePos - diff.interval.start)];
-      this.#displayMismatch({ nuc, pos: { x, y: pos.y }, height });
+      this.#displayMismatch({ nuc, pos: { x, y: pos.y } });
     });
   };
 
-  #displayDiffs = ({
-    read,
-    pos,
-    height,
-  }: {
-    readonly read: AlignedRead;
-    readonly pos: Position;
-    height: number;
-  }): void => {
+  #displayDiffs = ({ read, pos }: { readonly read: AlignedRead; readonly pos: Position }): void => {
     read.diffs.forEach((diff) => {
       const diffX =
         Number(diff.interval.start - this.focusedRegion!.interval.start) * this.nucWidth;
       switch (diff.type) {
         case "mismatch": {
-          this.#displayMismatch({ nuc: diff.sequence, pos: { x: diffX, y: pos.y }, height });
+          this.#displayMismatch({ nuc: diff.sequence, pos: { x: diffX, y: pos.y } });
           break;
         }
         case "ins":
-          this.#displayInsertion({ diff, pos: { x: diffX, y: pos.y }, height });
+          this.#displayInsertion({ diff, pos: { x: diffX, y: pos.y } });
           break;
         case "del":
-          this.#displayDeletion({ diff, pos: { x: diffX, y: pos.y }, height });
+          this.#displayDeletion({ diff, pos: { x: diffX, y: pos.y } });
           break;
         case "softClip":
-          this.#displaySoftClip({ diff, pos: { x: diffX, y: pos.y }, height });
+          this.#displaySoftClip({ diff, pos: { x: diffX, y: pos.y } });
           break;
       }
     });
@@ -686,25 +661,19 @@ export class AlignedReadsScene extends Scene {
     this.tooltip.visible = false;
   };
 
-  #displayRead = ({
-    read,
-    pos,
-    height,
-  }: {
-    readonly read: AlignedRead;
-    readonly pos: Position;
-    height: number;
-  }): void => {
+  #displayRead = ({ read, pos }: { readonly read: AlignedRead; readonly pos: Position }): void => {
     const width = Number(read.region.interval.end - read.region.interval.start) * this.nucWidth;
 
     const onMouseOver = (event: PIXI.FederatedPointerEvent): void => {
-      this.#displayTooltip({
-        read,
-        pos: {
-          x: event.globalX + this.viewportOffset.x,
-          y: event.globalY,
-        },
-      });
+      if (!this.isDragging) {
+        this.#displayTooltip({
+          read,
+          pos: {
+            x: event.globalX + this.viewportOffset.x,
+            y: event.globalY,
+          },
+        });
+      }
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -716,14 +685,14 @@ export class AlignedReadsScene extends Scene {
     if (read.isReverse) {
       this.drawPool.draw(REVERSE_READ_CAP_POOL, {
         pos: { x: pos.x - capWidth, y: pos.y },
-        dim: { width: capWidth, height },
+        dim: { width: capWidth, height: this.readHeight },
         onMouseOver,
         onMouseOut,
       });
     } else {
       this.drawPool.draw(FORWARD_READ_CAP_POOL, {
         pos: { x: pos.x + width - 1, y: pos.y },
-        dim: { width: capWidth, height },
+        dim: { width: capWidth, height: this.readHeight },
         onMouseOver,
         onMouseOut,
       });
@@ -731,26 +700,24 @@ export class AlignedReadsScene extends Scene {
 
     this.drawPool.draw(READ_BODY_POOL, {
       pos,
-      dim: { width, height },
+      dim: { width, height: this.readHeight },
       onMouseOver,
       onMouseOut,
     });
-    this.#displayDiffs({ read, pos, height });
+    this.#displayDiffs({ read, pos });
   };
 
   #displayAlignment = ({
     alignment,
     pos,
-    height,
   }: {
     readonly alignment: AlignedPair;
     readonly pos: Position;
-    height: number;
   }): void => {
     let reads;
     if (alignment.type == "pairedReadsKind") {
       reads = [alignment.read1, alignment.read2];
-      this.#displayPairLine({ pos, alignment, readHeight: height });
+      this.#displayPairLine({ pos, alignment });
     } else {
       reads = [alignment.read];
     }
@@ -764,7 +731,7 @@ export class AlignedReadsScene extends Scene {
         readX = 0;
       }
       try {
-        this.#displayRead({ read, pos: { x: readX, y: pos.y }, height });
+        this.#displayRead({ read, pos: { x: readX, y: pos.y } });
       } catch (error) {
         LOG.warn(String(error));
         LOG.warn(JSON.stringify(read));
@@ -778,6 +745,7 @@ export class AlignedReadsScene extends Scene {
     viewportWidth = this.dim.width,
     viewportHeight = this.dim.height,
   }: Partial<AlignedReadsSceneState>): void => {
+    // TODO set interactiveChildren to false on most elements to improve performance
     this.alignments = alignments;
     this.focusedRegion = focusedRegion;
     if (this.alignments === null || this.focusedRegion === null) {
@@ -791,24 +759,10 @@ export class AlignedReadsScene extends Scene {
       this.#destroyTooltip();
     }
 
-    // pixi-viewport doesn't seem to scale its contents correctly in the following case:
-    // 1. The viewport dimensions are equal to the buffer dimensions AND
-    // 2. The window is resized to be larger than the viewport dimensions
-    // To work around this, we scale the viewport contents manually.
-    // Not sure if this is a bug in pixi-viewport or our implementation.
-    let scale = 1;
-    if (
-      viewportWidth > this.dim.width &&
-      Math.round(this.dim.width) === Math.round(this.bufferDim.width)
-    ) {
-      scale = viewportWidth / this.dim.width;
-    }
-
     this.resize({ width: viewportWidth, height: viewportHeight });
     this.focusedRegionLength = Number(getLength(this.focusedRegion.interval));
     this.bufferedRegionLength = Number(getLength(this.alignments.bufferedRegion.interval));
     this.nucWidth = this.dim.width / this.focusedRegionLength;
-    this.readHeight = Math.min(40 * this.nucWidth, MAX_ALIGNMENT_HEIGHT);
     this.rowHeight = this.readHeight + 2;
     this.bufferDim = {
       width: Math.round(this.nucWidth * this.bufferedRegionLength),
@@ -820,8 +774,6 @@ export class AlignedReadsScene extends Scene {
       this.bufferDim.width,
       this.bufferDim.height
     );
-    this.viewport.scale = { x: scale, y: scale };
-    this.tooltip.scale = { x: 1, y: 1 };
 
     this.viewportOffset = {
       x:
@@ -873,7 +825,6 @@ export class AlignedReadsScene extends Scene {
         this.#displayAlignment({
           alignment,
           pos: { x, y },
-          height: this.readHeight,
         });
       });
       y += this.rowHeight;

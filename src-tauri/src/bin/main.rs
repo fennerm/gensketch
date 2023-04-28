@@ -51,6 +51,8 @@ fn main() -> Result<()> {
                     info: Color::Green,
                     trace: Color::Cyan,
                 })
+                // TODO configure loglevel for releases vs dev
+                // .level(log::LevelFilter::Warn)
                 .build(),
         )
         .manage(Backend::new()?)

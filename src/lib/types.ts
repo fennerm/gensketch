@@ -60,4 +60,4 @@ export type IUPACNucleotide = PrimaryIUPACNucleotide | SecondaryIUPACNucleotide;
 
 export type DividerOrientation = "horizontal" | "vertical";
 
-export type MouseHandler = (ev: MouseEvent) => void;
+export type MouseHandler = (mousePos: Position) => void;

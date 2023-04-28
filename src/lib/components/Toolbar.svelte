@@ -1,3 +1,5 @@
+<svelte:options immutable={true} />
+
 <script lang="ts">
   import { addAlignmentTrack, addSplit, openFileDialog } from "@lib/backend";
   import Button from "@lib/components/Button.svelte";

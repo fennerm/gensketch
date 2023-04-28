@@ -1,4 +1,6 @@
 <!-- Modal displayed when another svelte component encounters an unrecoverable error. -->
+<svelte:options immutable={true} />
+
 <script lang="ts">
   import Icon from "@iconify/svelte";
 

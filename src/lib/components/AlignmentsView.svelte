@@ -1,3 +1,5 @@
+<svelte:options immutable={true} />
+
 <!--
   Wraps a PIXI application for rendering alignments in the split grid.
 
@@ -141,6 +143,11 @@
         viewportWidth: canvasWidth,
         viewportHeight: canvasHeight,
       });
+      // In theory it might be more performant to rescale the viewport's width rather than
+      // redrawing. This is a bit messy though because scaling logic is different for sprites vs
+      // text objects (sprites need x to be rescaled but not y, text needs x and y scale to be
+      // equal so that text isn't stretched).
+      draw();
     } catch (error) {
       LOG.error(`Failed to resize alignments view: ${error}`);
     }
@@ -189,7 +196,9 @@
 
   const handleAlignmentsUpdated = (payload: AlignmentsUpdatedPayload): void => {
     if (scene !== null && splitId === payload.splitId && trackId === payload.trackId) {
-      updateData({ alignments: payload.alignments, focusedRegion: payload.focusedRegion });
+      window.requestAnimationFrame(() => {
+        updateData({ alignments: payload.alignments, focusedRegion: payload.focusedRegion });
+      });
     }
   };
 
@@ -203,17 +212,21 @@
   const handleAlignmentsPanned = (payload: FocusedRegionUpdatedPayload): void => {
     if (scene !== null && payload.splitId === splitId) {
       LOG.debug(`Panning alignments to ${to1IndexedString(payload.genomicRegion)}`);
-      updateData({ focusedRegion: payload.genomicRegion });
+      window.requestAnimationFrame(() => {
+        updateData({ focusedRegion: payload.genomicRegion });
+      });
     }
   };
 
   const handleAlignmentsZoomed = (payload: FocusedRegionUpdatedPayload): void => {
     if (scene !== null && payload.splitId === splitId) {
       LOG.debug(`Zooming alignments to ${to1IndexedString(payload.genomicRegion)}`);
-      updateData({ focusedRegion: payload.genomicRegion });
-      // TODO Remove this draw call and just zoom the viewport instead
-      // I've futzed around with updating this.viewport.scale but couldn't get it working.
-      draw();
+      window.requestAnimationFrame(() => {
+        updateData({ focusedRegion: payload.genomicRegion });
+        // TODO Remove this draw call and just zoom the viewport instead
+        // I've futzed around with updating this.viewport.scale but couldn't get it working.
+        draw();
+      });
     }
   };
 

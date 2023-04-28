@@ -1,4 +1,5 @@
 import type { SplitData, TrackData } from "@lib/bindings";
+import type { Position } from "@lib/types";
 
 export interface SplitState extends SplitData {
   widthPct: number;
@@ -9,9 +10,9 @@ export interface TrackState extends TrackData {
 }
 
 export type DividerDragHandler = ({
-  mouseEvent,
+  mousePos,
   dividerIndex,
 }: {
-  mouseEvent: MouseEvent;
+  mousePos: Position;
   dividerIndex: number;
 }) => void;
