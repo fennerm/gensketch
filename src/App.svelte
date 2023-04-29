@@ -36,6 +36,9 @@
     window.removeEventListener("keydown", handleKeyDown);
   });
 
+  /**
+   * Handle keyboard events which are active across the entire app.
+   */
   const handleKeyDown = (event: KeyboardEvent) => {
     const now = performance.now();
     if (now - lastKeyTime < keyRepeatRate) {

@@ -20,7 +20,7 @@
     {splits}
     {handleVerticalDividerDrag}
   />
-  {#if trackIndex < tracks.length}
+  {#if trackIndex + 1 < tracks.length}
     <GridDivider
       orientation="horizontal"
       dragHandler={(mousePos) =>

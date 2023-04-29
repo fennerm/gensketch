@@ -13,9 +13,9 @@ import DejaVuSansMonoFntContents from "../../assets/DejaVuSansMono.fnt?raw";
 export const DRAW_LETTER_THRESHOLD = 12;
 
 export const loadPixiAssets = (): void => {
-  LOG.debug("Initializing Pixi.js");
   const pngTexture = PIXI.Texture.from(DejaVuSansMonoPngUrl);
   PIXI.BitmapFont.install(DejaVuSansMonoFntContents, pngTexture);
+  LOG.debug("PIXI assets loaded");
 };
 
 export const isBitmapText = (obj: any): obj is PIXI.BitmapText => {

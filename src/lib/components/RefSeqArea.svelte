@@ -15,7 +15,7 @@
 <div class="ref-seq-area">
   {#each splits as split, splitIndex}
     <RefSeqView splitId={split.id} widthPct={split.widthPct} />
-    {#if splitIndex < splits.length}
+    {#if splitIndex + 1 < splits.length}
       <GridDivider
         orientation="vertical"
         dragHandler={(mousePos) =>
@@ -29,6 +29,6 @@
   .ref-seq-area {
     display: flex;
     width: 100%;
-    height: 24px;
+    height: 30px;
   }
 </style>

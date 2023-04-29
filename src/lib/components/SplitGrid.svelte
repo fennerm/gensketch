@@ -1,19 +1,27 @@
+<!-- The primary area where genomic data is displayed.default
+
+The split grid is divided vertically into multiple splits and divided horizontally into multiple 
+tracks. For each split x track combination there is a view which displays genomic data.
+
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
+  import _ from "lodash";
   import { afterUpdate, onMount } from "svelte";
 
   import { getSplits, listenForSplitAdded, listenForTrackAdded } from "@lib/backend";
   import type { AlignmentTrackData, SplitData } from "@lib/bindings";
   import RefSeqArea from "@lib/components/RefSeqArea.svelte";
-  import type { DividerDragHandler } from "@lib/components/SplitGrid.types";
-  import type { SplitState, TrackState } from "@lib/components/SplitGrid.types";
+  import type { DividerDragHandler, SplitState, TrackState } from "@lib/components/SplitGrid.types";
   import SplitToolbar from "@lib/components/SplitToolbar.svelte";
   import TrackArea from "@lib/components/TrackArea.svelte";
   import { DIVIDER_PX } from "@lib/constants";
   import { loadPixiAssets } from "@lib/drawing/drawing";
   import LOG from "@lib/logger";
-  import { sum } from "@lib/util";
+  import { defaultErrorHandler } from "@lib/errorHandling";
+  import DisplayError from "@lib/components/DisplayError.svelte";
+  import Spinner from "@lib/components/Spinner.svelte";
 
   // Minimum size that a split or track can be resized as percent of the split grid
   const minCellPct = 2;
@@ -23,24 +31,57 @@
   let tracks: TrackState[] = [];
   let trackAreaHeight: number;
   let gridWidth: number;
-  let offsetTop: number;
-  let offsetLeft: number;
+
+  // Number of pixels from the top of the window to the top of the track area
+  let trackAreaOffsetTop: number;
+
+  // Number of pixels from the left of the window to the left of the track area
+  let trackAreaOffsetLeft: number;
+
+  // True if PIXi assets have been loaded
   let assetsLoaded: boolean = false;
 
-  onMount(async () => {
+  let errorMsg: string | null = null;
+
+  const handleNewSplit = (newSplit: SplitData): void => {
+    LOG.debug(`Received new split data from backend: ${JSON.stringify(newSplit)}`);
+    const newSplitWidth = 100 / (splits.length + 1);
+    splits.forEach((split) => {
+      split.widthPct = split.widthPct - newSplitWidth / splits.length;
+    });
+    const newSplitState: SplitState = {
+      ...newSplit,
+      widthPct: newSplitWidth,
+    };
+    LOG.debug(`Updating UI with new split: ${JSON.stringify(newSplitState)}`);
+    splits = [...splits, newSplitState];
+  };
+
+  const loadInitialData = (): void => {
+    getSplits()
+      .then((splits) => {
+        splits.map((split) => handleNewSplit(split));
+      })
+      .catch((error) => {
+        errorMsg = `Failed to load main display area`;
+        defaultErrorHandler({
+          msg: `Failed to load splits: ${error}`,
+          displayAlert: false,
+          rethrowError: error,
+        });
+      });
+  };
+
+  const loadAssets = (): void => {
     loadPixiAssets();
     assetsLoaded = true;
-    getSplits().then((splits) => {
-      splits.map((split) => handleNewSplit(split));
-    });
-  });
+  };
 
   const handleNewTrack = (newTrack: AlignmentTrackData): void => {
-    LOG.debug(`Handling track-added event: ${JSON.stringify(newTrack)}`);
-    const numTracks = tracks.length;
-    const newTrackHeight = 100 / (numTracks + 1);
-    tracks.map((track) => {
-      track.heightPct = track.heightPct - newTrackHeight / numTracks;
+    LOG.debug(`Received new track data from backend: ${JSON.stringify(newTrack)}`);
+    const newTrackHeight = 100 / (tracks.length + 1);
+    tracks.forEach((track) => {
+      track.heightPct = track.heightPct - newTrackHeight / tracks.length;
     });
     const newTrackState: TrackState = {
       ...newTrack,
@@ -50,24 +91,13 @@
     LOG.debug(`Updating UI with new track: ${JSON.stringify(newTrackState)}`);
   };
 
-  const handleNewSplit = (newSplit: SplitData): void => {
-    LOG.debug(`Handling spit-added event: ${JSON.stringify(newSplit)}`);
-    const numSplits = splits.length;
-    const newSplitWidth = 100 / (numSplits + 1);
-    splits.map((split) => {
-      split.widthPct = split.widthPct - newSplitWidth / numSplits;
-    });
-    const newSplitState: SplitState = {
-      id: newSplit.id,
-      widthPct: newSplitWidth,
-      focusedRegion: newSplit.focusedRegion,
-      bufferedRegion: newSplit.bufferedRegion,
-      refreshBoundRegion: newSplit.refreshBoundRegion,
-    };
-    LOG.debug(`Updating UI with new split: ${JSON.stringify(newSplitState)}`);
-    splits = [...splits, newSplitState];
-  };
-
+  /**
+   * Adjust a set of track/split dimensions based on the position of a divider that was dragged
+   *
+   * @param currentDimensions - The current dimensions of the tracks/splits as percentages
+   * @param dividerIndex - The index of the divider that was dragged
+   * @param mousePosPct - The mouse position as a percentage of the track area
+   * */
   const adjustDimensions = ({
     currentDimensions,
     dividerIndex,
@@ -77,44 +107,43 @@
     dividerIndex: number;
     mousePosPct: number;
   }): number[] => {
-    // E.g start with 33%, 33%, 33%
-    // Divider 0 moved to 10%
-    // Set track 0 to 10%
-    // Set other tracks to (33 - 23/2)%
-    //
+    // E.g start splits with dimensions = [33%, 33%, 33%]
+    // - Divider 0 moved to 10%
+    // - Set split 0 width to 10%
+    // - Set other split widths to (33 - 23/2)%
+
     // Calculate a cumulative sum of the splits/tracks up to the current one. This is used to
     // determine where the mouse is in relation to the current split/track.
-    const cumSumDim = sum(currentDimensions.slice(0, dividerIndex + 1));
+    const cumSumDim = _.sum(currentDimensions.slice(0, dividerIndex + 1));
+
+    // The percentage to reduce the affected split/track by. The remaining splits/tracks will be
+    // reduced by an equal fraction of this amount.
     let diff = mousePosPct - cumSumDim + (DIVIDER_PX / window.innerHeight) * 100;
+
+    // Make sure that the split/track being resized doesn't go below the minimum size
     if (currentDimensions[dividerIndex] + diff < minCellPct) {
       diff = minCellPct - currentDimensions[dividerIndex];
     } else if (currentDimensions[dividerIndex + 1] - diff < minCellPct) {
       diff = currentDimensions[dividerIndex + 1] - minCellPct;
     }
-    const updatedDimensions = Array.from(
-      currentDimensions.map((dim, dimIndex) => {
-        if (dimIndex === dividerIndex) {
-          return dim + diff;
-        } else if (dimIndex === dividerIndex + 1) {
-          return dim - diff;
-        } else {
-          return dim;
-        }
-      })
-    );
-    return updatedDimensions;
+    const newDimensions = _.map(currentDimensions, (dim, dimIndex) => {
+      if (dimIndex === dividerIndex) {
+        return dim + diff;
+      } else if (dimIndex === dividerIndex + 1) {
+        return dim - diff;
+      } else {
+        return dim;
+      }
+    });
+    return newDimensions;
   };
 
   const getMouseYPosPct = (mouseYPos: number) => {
-    LOG.debug(
-      `mouseYPos=${mouseYPos}, offsetTop=${offsetTop}, trackAreaHeight=${trackAreaHeight}}`
-    );
-    return ((mouseYPos - offsetTop) / trackAreaHeight) * 100;
+    return ((mouseYPos - trackAreaOffsetTop) / trackAreaHeight) * 100;
   };
 
   const getMouseXPosPct = (mouseXPos: number) => {
-    LOG.debug(`mouseXPos=${mouseXPos}, offsetLeft=${offsetLeft}, gridWidth=${gridWidth}`);
-    return ((mouseXPos - offsetLeft) / gridWidth) * 100;
+    return ((mouseXPos - trackAreaOffsetLeft) / gridWidth) * 100;
   };
 
   const setSplitWidths = (widths: readonly number[]): void => {
@@ -132,16 +161,15 @@
   };
 
   const handleHorizontalDividerDrag: DividerDragHandler = ({ mousePos, dividerIndex }) => {
-    const mouseYPos = mousePos.y;
-    const mousePosPct = getMouseYPosPct(mouseYPos);
-    const currentDimensions = Array.from(tracks.map((track) => track.heightPct));
+    const mousePosPct = getMouseYPosPct(mousePos.y);
+    const currentDimensions = _.map(tracks, (track) => track.heightPct);
     const updatedTrackHeights = adjustDimensions({
       mousePosPct,
       dividerIndex,
       currentDimensions,
     });
     LOG.debug(
-      `Handling divider drag event: mousePos=${mouseYPos}; ` +
+      `Handling divider drag event: mousePos=${mousePos.y}; ` +
         `windowHeight=${window.innerHeight}; mousePosPct=${mousePosPct}; ` +
         `initialTrackHeights=${currentDimensions} updatedTrackHeights=${updatedTrackHeights}`
     );
@@ -149,16 +177,15 @@
   };
 
   const handleVerticalDividerDrag: DividerDragHandler = ({ mousePos, dividerIndex }) => {
-    const mouseXPos = mousePos.x;
-    const mousePosPct = getMouseXPosPct(mouseXPos);
-    const currentDimensions = Array.from(splits.map((split) => split.widthPct));
+    const mousePosPct = getMouseXPosPct(mousePos.x);
+    const currentDimensions = _.map(splits, (split) => split.widthPct);
     const updatedSplitWidths = adjustDimensions({
       mousePosPct,
       dividerIndex,
       currentDimensions,
     });
     LOG.debug(
-      `Handling divider drag event: mousePos=${mouseXPos}; ` +
+      `Handling divider drag event: mousePos=${mousePos.x}; ` +
         `windowWidth=${window.innerWidth}; mousePosPct=${mousePosPct}; ` +
         `initialSplitWidths=${currentDimensions} updatedSplitWidths=${updatedSplitWidths}`
     );
@@ -168,32 +195,40 @@
   listenForSplitAdded((event) => handleNewSplit(event.payload));
   listenForTrackAdded((event) => handleNewTrack(event.payload));
 
+  onMount(async () => {
+    loadAssets();
+    loadInitialData();
+  });
+
   afterUpdate(() => {
     if (trackArea !== undefined) {
-      offsetLeft = trackArea.offsetLeft;
-      offsetTop = trackArea.offsetTop;
+      trackAreaOffsetLeft = trackArea.offsetLeft;
+      trackAreaOffsetTop = trackArea.offsetTop;
     }
   });
 </script>
 
-<div class="split-grid">
-  {#if assetsLoaded}
+<div class="split-grid fill-parent">
+  {#if errorMsg !== null}
+    <DisplayError message={errorMsg} />
+  {:else if !assetsLoaded}
+    <Spinner />
+  {:else}
     <SplitToolbar {splits} {handleVerticalDividerDrag} />
     <RefSeqArea {splits} {handleVerticalDividerDrag} />
     <div
-      class="track-area-wrapper"
+      class="fill-parent"
       bind:this={trackArea}
       bind:offsetHeight={trackAreaHeight}
       bind:offsetWidth={gridWidth}
     >
       <TrackArea {tracks} {splits} {handleHorizontalDividerDrag} {handleVerticalDividerDrag} />
     </div>
-    <!-- TODO add loading wheel while assets loading-->
   {/if}
 </div>
 
 <style>
-  .track-area-wrapper {
+  .fill-parent {
     width: 100%;
     height: 100%;
   }
@@ -202,7 +237,5 @@
     display: flex;
     flex-grow: 1;
     flex-direction: column;
-    width: 100%;
-    height: 100%;
   }
 </style>

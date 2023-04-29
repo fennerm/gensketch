@@ -17,7 +17,7 @@
       widthPct={split.widthPct}
       focusedRegion={split.focusedRegion}
     />
-    {#if splitIndex != splits.length}
+    {#if splitIndex + 1 < splits.length}
       <GridDivider
         orientation="vertical"
         dragHandler={(mousePos) =>

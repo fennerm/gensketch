@@ -1,3 +1,6 @@
+<!--
+  A simple loading wheel.
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
