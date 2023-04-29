@@ -1,3 +1,4 @@
+<!-- Wraps multiple RefSeqViews (one per split in the split grid). -->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -6,6 +7,8 @@
   import type { DividerDragHandler, SplitState } from "@lib/components/SplitGrid.types";
 
   export let splits: SplitState[] = [];
+
+  // Function to call when a grid divider is dragged
   export let handleVerticalDividerDrag: DividerDragHandler;
 </script>
 

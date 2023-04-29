@@ -73,7 +73,9 @@
       return;
     }
     try {
-      scene.draw();
+      window.requestAnimationFrame(() => {
+        scene!.draw();
+      });
     } catch (error) {
       errorMsg = `Failed to draw alignments for ${path.basename(filePath)}`;
       defaultErrorHandler({
@@ -94,9 +96,14 @@
     alignments?: AlignmentStackKind;
     focusedRegion?: GenomicRegion;
   }): void => {
+    if (scene === null) {
+      return;
+    }
     isLoading = false;
     try {
-      scene!.setState({ focusedRegion: focusedRegion, alignments: alignments });
+      window.requestAnimationFrame(() => {
+        scene!.setState({ focusedRegion, alignments });
+      });
       errorMsg = null;
     } catch (error) {
       errorMsg = `Failed to update alignments for ${path.basename(filePath)}`;
@@ -196,9 +203,7 @@
 
   const handleAlignmentsUpdated = (payload: AlignmentsUpdatedPayload): void => {
     if (scene !== null && splitId === payload.splitId && trackId === payload.trackId) {
-      window.requestAnimationFrame(() => {
-        updateData({ alignments: payload.alignments, focusedRegion: payload.focusedRegion });
-      });
+      updateData({ alignments: payload.alignments, focusedRegion: payload.focusedRegion });
     }
   };
 
@@ -212,21 +217,17 @@
   const handleAlignmentsPanned = (payload: FocusedRegionUpdatedPayload): void => {
     if (scene !== null && payload.splitId === splitId) {
       LOG.debug(`Panning alignments to ${to1IndexedString(payload.genomicRegion)}`);
-      window.requestAnimationFrame(() => {
-        updateData({ focusedRegion: payload.genomicRegion });
-      });
+      updateData({ focusedRegion: payload.genomicRegion });
     }
   };
 
   const handleAlignmentsZoomed = (payload: FocusedRegionUpdatedPayload): void => {
     if (scene !== null && payload.splitId === splitId) {
       LOG.debug(`Zooming alignments to ${to1IndexedString(payload.genomicRegion)}`);
-      window.requestAnimationFrame(() => {
-        updateData({ focusedRegion: payload.genomicRegion });
-        // TODO Remove this draw call and just zoom the viewport instead
-        // I've futzed around with updating this.viewport.scale but couldn't get it working.
-        draw();
-      });
+      updateData({ focusedRegion: payload.genomicRegion });
+      // TODO Remove this draw call and just zoom the viewport instead
+      // I've futzed around with updating this.viewport.scale but couldn't get it working.
+      draw();
     }
   };
 
