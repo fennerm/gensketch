@@ -20,7 +20,7 @@ const NUC_TEXT_SUFFIX = "Text";
 const GAP_NUC = "GAP";
 
 export class RefSeqScene extends Scene {
-  drawPool: DrawPoolGroup;
+  _drawPool: DrawPoolGroup;
   bufferDim: Dimensions;
   viewport: Viewport;
   focusedSequence: string | null;
@@ -31,17 +31,17 @@ export class RefSeqScene extends Scene {
 
   constructor(params: SceneParams) {
     super(params);
-    this.bufferDim = { width: 3 * this.dim.width, height: this.dim.height };
+    this.bufferDim = { width: 3 * this._dim.width, height: this._dim.height };
     this.viewport = new Viewport({
-      screenWidth: this.dim.width,
-      screenHeight: this.dim.height,
+      screenWidth: this._dim.width,
+      screenHeight: this._dim.height,
       worldWidth: this.bufferDim.width,
       worldHeight: this.bufferDim.height,
       events: this.pixiApp.renderer.events,
     });
     this.pixiApp.stage.addChild(this.viewport);
     this.viewport.drag().pinch().decelerate().clamp({ direction: "x" });
-    this.drawPool = this.#initDrawPools();
+    this._drawPool = this.#initDrawPools();
     this.focusedSequence = null;
     this.bufferedSequence = null;
     this.focusedRegion = null;
@@ -50,7 +50,7 @@ export class RefSeqScene extends Scene {
   }
 
   #initDrawPools = (): DrawPoolGroup => {
-    const nucleotideColors = this.styles.colors.nucleotideColors;
+    const nucleotideColors = this._styles.colors.nucleotideColors;
     const drawConfig: DrawConfig = {};
     PRIMARY_IUPAC_NUCLEOTIDES.forEach((nuc) => {
       const nucColor = nucleotideColors[nuc];
@@ -90,7 +90,7 @@ export class RefSeqScene extends Scene {
     bufferedSequence = this.bufferedSequence,
     focusedRegion = this.focusedRegion,
     bufferedRegion = this.bufferedRegion,
-    viewportWidth = this.dim.width,
+    viewportWidth = this._dim.width,
   }: {
     focusedSequence?: string | null;
     bufferedSequence?: string | null;
@@ -120,15 +120,15 @@ export class RefSeqScene extends Scene {
       );
     }
 
-    this.resize({ width: viewportWidth, height: this.dim.height });
-    this.nucWidth = this.dim.width / this.focusedSequence.length;
+    this.resize({ width: viewportWidth, height: this._dim.height });
+    this.nucWidth = this._dim.width / this.focusedSequence.length;
     this.bufferDim = {
       width: this.nucWidth * this.bufferedSequence.length,
-      height: this.dim.height,
+      height: this._dim.height,
     };
     this.viewport.resize(
-      this.dim.width,
-      this.dim.height,
+      this._dim.width,
+      this._dim.height,
       this.bufferDim.width,
       this.bufferDim.height
     );
@@ -152,20 +152,20 @@ export class RefSeqScene extends Scene {
     }
 
     LOG.debug(
-      `Redrawing RefSeqView with nucWidth=${this.nucWidth}, bufferedSequence.length=${this.bufferedSequence.length},  viewportWidth=${this.dim.width}, viewportHeight=${this.dim.height}`
+      `Redrawing RefSeqView with nucWidth=${this.nucWidth}, bufferedSequence.length=${this.bufferedSequence.length},  viewportWidth=${this._dim.width}, viewportHeight=${this._dim.height}`
     );
     for (let i = 0; i < this.bufferedSequence.length; i++) {
       let nuc = this.bufferedSequence.charAt(i);
       nuc = nuc !== "-" ? nuc : GAP_NUC;
       const x = i * this.nucWidth;
       if (this.nucWidth > DRAW_LETTER_THRESHOLD) {
-        this.drawPool.draw(nuc + NUC_TEXT_SUFFIX, {
+        this._drawPool.draw(nuc + NUC_TEXT_SUFFIX, {
           pos: { x, y: 0 },
         });
       } else {
-        this.drawPool.draw(nuc + NUC_RECT_SUFFIX, {
+        this._drawPool.draw(nuc + NUC_RECT_SUFFIX, {
           pos: { x, y: 0 },
-          dim: { width: this.nucWidth, height: this.dim.height },
+          dim: { width: this.nucWidth, height: this._dim.height },
         });
       }
     }

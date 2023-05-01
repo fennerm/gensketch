@@ -11,21 +11,21 @@ export interface SceneParams {
 
 export abstract class Scene {
   pixiApp: PixiApplication;
-  dim: Dimensions;
   canvas: HTMLElement;
-  styles: StyleConfig;
-  abstract drawPool: DrawPoolGroup;
+  _dim: Dimensions;
+  _styles: StyleConfig;
+  abstract _drawPool: DrawPoolGroup;
 
   constructor({ canvas, dim, styles, layered = false }: SceneParams) {
     this.canvas = canvas;
-    this.dim = dim;
-    this.styles = styles;
-    this.pixiApp = new PixiApplication({ dim: this.dim, layered });
+    this._dim = dim;
+    this._styles = styles;
+    this.pixiApp = new PixiApplication({ dim: this._dim, layered });
     this.canvas.appendChild(this.pixiApp.renderer.view as HTMLCanvasElement);
   }
 
   clear = (): void => {
-    this.drawPool.recycleAll();
+    this._drawPool.recycleAll();
   };
 
   destroy = (): void => {
@@ -33,8 +33,8 @@ export abstract class Scene {
   };
 
   resize = (dim: Dimensions): void => {
-    this.dim = dim;
-    this.pixiApp.resize(this.dim);
+    this._dim = dim;
+    this.pixiApp.resize(this._dim);
   };
 
   abstract draw(): void;
