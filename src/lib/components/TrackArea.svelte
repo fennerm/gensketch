@@ -1,3 +1,4 @@
+<!-- Area of the split grid where tracks are displayed -->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -7,6 +8,8 @@
 
   export let tracks: TrackState[];
   export let splits: SplitState[];
+
+  // Functions to call when grid dividers are dragged
   export let handleVerticalDividerDrag: DividerDragHandler;
   export let handleHorizontalDividerDrag: DividerDragHandler;
 </script>

@@ -6,11 +6,19 @@
   import GridDivider from "@lib/components/GridDivider.svelte";
   import type { DividerDragHandler, SplitState } from "@lib/components/SplitGrid.types";
 
+  // Track name
   export let name: string;
+
+  // Track UUID
   export let id: string;
+
+  // Path to the file containing the data to display
   export let filePath: string;
+
   export let heightPct: number;
   export let splits: SplitState[];
+
+  // Function to call when a vertical grid divider is dragged
   export let handleVerticalDividerDrag: DividerDragHandler;
 </script>
 
