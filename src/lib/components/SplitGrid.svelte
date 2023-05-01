@@ -7,21 +7,22 @@ tracks. For each split x track combination there is a view which displays genomi
 <svelte:options immutable={true} />
 
 <script lang="ts">
-  import _ from "lodash";
+  import { map } from "lodash";
   import { afterUpdate, onMount } from "svelte";
 
   import { getSplits, listenForSplitAdded, listenForTrackAdded } from "@lib/backend";
   import type { AlignmentTrackData, SplitData } from "@lib/bindings";
+  import DisplayError from "@lib/components/DisplayError.svelte";
   import RefSeqArea from "@lib/components/RefSeqArea.svelte";
+  import Spinner from "@lib/components/Spinner.svelte";
   import type { DividerDragHandler, SplitState, TrackState } from "@lib/components/SplitGrid.types";
   import SplitToolbar from "@lib/components/SplitToolbar.svelte";
   import TrackArea from "@lib/components/TrackArea.svelte";
-  import { DIVIDER_PX } from "@lib/constants";
+  // import { DIVIDER_PX } from "@lib/constants";
   import { loadPixiAssets } from "@lib/drawing/drawing";
-  import LOG from "@lib/logger";
   import { defaultErrorHandler } from "@lib/errorHandling";
-  import DisplayError from "@lib/components/DisplayError.svelte";
-  import Spinner from "@lib/components/Spinner.svelte";
+  import LOG from "@lib/logger";
+  import { adjustDimensions } from "@lib/util";
 
   // Minimum size that a split or track can be resized as percent of the split grid
   const minCellPct = 2;
@@ -91,53 +92,6 @@ tracks. For each split x track combination there is a view which displays genomi
     LOG.debug(`Updating UI with new track: ${JSON.stringify(newTrackState)}`);
   };
 
-  /**
-   * Adjust a set of track/split dimensions based on the position of a divider that was dragged
-   *
-   * @param currentDimensions - The current dimensions of the tracks/splits as percentages
-   * @param dividerIndex - The index of the divider that was dragged
-   * @param mousePosPct - The mouse position as a percentage of the track area
-   * */
-  const adjustDimensions = ({
-    currentDimensions,
-    dividerIndex,
-    mousePosPct,
-  }: {
-    readonly currentDimensions: number[];
-    dividerIndex: number;
-    mousePosPct: number;
-  }): number[] => {
-    // E.g start splits with dimensions = [33%, 33%, 33%]
-    // - Divider 0 moved to 10%
-    // - Set split 0 width to 10%
-    // - Set other split widths to (33 - 23/2)%
-
-    // Calculate a cumulative sum of the splits/tracks up to the current one. This is used to
-    // determine where the mouse is in relation to the current split/track.
-    const cumSumDim = _.sum(currentDimensions.slice(0, dividerIndex + 1));
-
-    // The percentage to reduce the affected split/track by. The remaining splits/tracks will be
-    // reduced by an equal fraction of this amount.
-    let diff = mousePosPct - cumSumDim + (DIVIDER_PX / window.innerHeight) * 100;
-
-    // Make sure that the split/track being resized doesn't go below the minimum size
-    if (currentDimensions[dividerIndex] + diff < minCellPct) {
-      diff = minCellPct - currentDimensions[dividerIndex];
-    } else if (currentDimensions[dividerIndex + 1] - diff < minCellPct) {
-      diff = currentDimensions[dividerIndex + 1] - minCellPct;
-    }
-    const newDimensions = _.map(currentDimensions, (dim, dimIndex) => {
-      if (dimIndex === dividerIndex) {
-        return dim + diff;
-      } else if (dimIndex === dividerIndex + 1) {
-        return dim - diff;
-      } else {
-        return dim;
-      }
-    });
-    return newDimensions;
-  };
-
   const getMouseYPosPct = (mouseYPos: number) => {
     return ((mouseYPos - trackAreaOffsetTop) / trackAreaHeight) * 100;
   };
@@ -162,11 +116,12 @@ tracks. For each split x track combination there is a view which displays genomi
 
   const handleHorizontalDividerDrag: DividerDragHandler = ({ mousePos, dividerIndex }) => {
     const mousePosPct = getMouseYPosPct(mousePos.y);
-    const currentDimensions = _.map(tracks, (track) => track.heightPct);
+    const currentDimensions = map(tracks, (track) => track.heightPct);
     const updatedTrackHeights = adjustDimensions({
-      mousePosPct,
-      dividerIndex,
-      currentDimensions,
+      dimensions: currentDimensions,
+      targetPos: mousePosPct,
+      targetIndex: dividerIndex,
+      minDim: minCellPct,
     });
     LOG.debug(
       `Handling divider drag event: mousePos=${mousePos.y}; ` +
@@ -178,11 +133,12 @@ tracks. For each split x track combination there is a view which displays genomi
 
   const handleVerticalDividerDrag: DividerDragHandler = ({ mousePos, dividerIndex }) => {
     const mousePosPct = getMouseXPosPct(mousePos.x);
-    const currentDimensions = _.map(splits, (split) => split.widthPct);
+    const currentDimensions = map(splits, (split) => split.widthPct);
     const updatedSplitWidths = adjustDimensions({
-      mousePosPct,
-      dividerIndex,
-      currentDimensions,
+      dimensions: currentDimensions,
+      targetPos: mousePosPct,
+      targetIndex: dividerIndex,
+      minDim: minCellPct,
     });
     LOG.debug(
       `Handling divider drag event: mousePos=${mousePos.x}; ` +

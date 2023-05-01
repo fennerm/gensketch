@@ -1,3 +1,4 @@
+<!-- Toolbar for a single split in the split grid. -->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -6,6 +7,8 @@
 
   export let splitId: string;
   export let focusedRegion: GenomicRegion;
+
+  // Width of the split as a percentage of the total width of the split grid
   export let widthPct: number;
 </script>
 

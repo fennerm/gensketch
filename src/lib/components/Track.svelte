@@ -1,3 +1,4 @@
+<!-- A row in the split grid, holding multiple AlignmentViews which display genomic data.-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
