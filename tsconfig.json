@@ -1,6 +1,11 @@
 {
   "extends": "./.svelte-kit/tsconfig.json",
+  "exclude": [
+    "src/testUtill/**",
+    "**/*.test.ts",
+  ],
   "compilerOptions": {
+    "module": "ES2022",
     "allowJs": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
