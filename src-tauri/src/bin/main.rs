@@ -1,6 +1,7 @@
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
 use anyhow::Result;
+use tauri::{Manager, WindowMenuEvent};
 use tauri_plugin_log::fern::colors::{Color, ColoredLevelConfig};
 use tauri_plugin_log::LogTarget;
 
@@ -18,6 +19,7 @@ use gensketch_lib::interface::commands::{
     get_grid_focus, get_reference_sequence, get_splits, get_user_config, initialize,
     pan_focused_split, update_focused_region, update_grid_focus,
 };
+use gensketch_lib::interface::system_menu::{open_files, setup_system_menu};
 
 #[cfg(debug_assertions)]
 fn spawn_deadlock_detection_thread() {
@@ -71,6 +73,16 @@ fn main() -> Result<()> {
             update_focused_region,
             update_grid_focus
         ])
+        .menu(setup_system_menu()?)
+        .on_menu_event(|event: WindowMenuEvent| match event.menu_item_id() {
+            "quit" => {
+                event.window().app_handle().exit(0);
+            }
+            "open_file" => {
+                open_files(event.window().app_handle());
+            }
+            _ => panic!("Unconfigured menu item"),
+        })
         .setup(|_| {
             #[cfg(debug_assertions)]
             spawn_deadlock_detection_thread();
