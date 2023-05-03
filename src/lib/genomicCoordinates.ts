@@ -40,6 +40,16 @@ export const parse1IndexedCoordinates = (value: string): GenomicRegion => {
   return { seqName: parsed.groups.seqName, interval: { start, end } };
 };
 
-export const getLength = (interval: GenomicInterval): bigint => {
+export const isGenomicRegion = (value: any): value is GenomicRegion => {
+  return value.seqName !== undefined && value.interval !== undefined;
+};
+
+export const getLength = (region: GenomicInterval | GenomicRegion): bigint => {
+  let interval: GenomicInterval;
+  if (isGenomicRegion(region)) {
+    interval = region.interval;
+  } else {
+    interval = region;
+  }
   return interval.end - interval.start;
 };
