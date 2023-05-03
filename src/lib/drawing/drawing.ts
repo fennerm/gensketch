@@ -141,7 +141,6 @@ export class PixiApplication {
     readonly texture: PIXI.RenderTexture;
     cleanupGraphic?: boolean;
   }): void => {
-    this.ticker.stop();
     this.renderer.render(shape, { renderTexture: texture });
     if (cleanupGraphic) {
       shape.destroy(true);

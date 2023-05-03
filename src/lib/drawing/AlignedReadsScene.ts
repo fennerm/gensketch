@@ -793,7 +793,7 @@ export class AlignedReadsScene extends Scene {
       onMouseOver,
       onMouseOut,
     });
-    // this._displayDiffs({ read, pos });
+    this._displayDiffs({ read, pos });
   };
 
   _displayAlignment = ({
@@ -806,7 +806,7 @@ export class AlignedReadsScene extends Scene {
     let reads;
     if (alignment.type == "pairedReadsKind") {
       reads = [alignment.read1, alignment.read2];
-      // this._displayPairLine({ pos, alignment });
+      this._displayPairLine({ pos, alignment });
     } else {
       reads = [alignment.read];
     }
