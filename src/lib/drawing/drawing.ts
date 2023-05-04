@@ -55,6 +55,7 @@ export const updateIfChanged = ({
   layer?: LayerGroup;
   color?: number;
 }): void => {
+  // TODO set interactiveChildren to false on most elements to improve performance
   if (pos !== undefined && pos.x !== container.x) {
     container.x = pos.x;
   }
@@ -128,7 +129,7 @@ export class PixiApplication {
 
     this.ticker.add(() => {
       this.renderer.render(this.stage);
-    }, PIXI.UPDATE_PRIORITY.LOW);
+    });
     this.ticker.start();
   }
 
@@ -268,7 +269,7 @@ export class DrawPool {
 
 export type DrawClass = string;
 
-export type DrawConfig = {
+export type DrawPoolConfig = {
   [name: DrawClass]: {
     drawFn: DrawFunction;
     poolsize?: number;
@@ -280,11 +281,11 @@ export interface ManagedDrawObject extends TaggedDrawObject {
 }
 
 export class DrawPoolGroup {
-  drawConfig: DrawConfig;
+  drawConfig: DrawPoolConfig;
   pools: Map<DrawClass, DrawPool>;
   stage: PIXI.Container;
 
-  constructor({ drawConfig, stage }: { drawConfig: DrawConfig; stage: PIXI.Container }) {
+  constructor({ drawConfig, stage }: { drawConfig: DrawPoolConfig; stage: PIXI.Container }) {
     this.drawConfig = drawConfig;
     this.pools = new Map();
     this.stage = stage;

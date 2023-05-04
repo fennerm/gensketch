@@ -6,7 +6,7 @@ import { Scene } from "@lib/drawing/Scene";
 import type { SceneParams } from "@lib/drawing/Scene";
 import {
   DRAW_LETTER_THRESHOLD,
-  type DrawConfig,
+  type DrawPoolConfig,
   DrawPoolGroup,
   drawRect,
   drawText,
@@ -40,7 +40,7 @@ export class RefSeqScene extends Scene {
       events: this.pixiApp.renderer.events,
     });
     this.pixiApp.stage.addChild(this.viewport);
-    this.viewport.drag().pinch().decelerate().clamp({ direction: "x" });
+    this.viewport.clamp({ direction: "x" });
     this._drawPool = this.#initDrawPools();
     this.focusedSequence = null;
     this.bufferedSequence = null;
@@ -51,7 +51,7 @@ export class RefSeqScene extends Scene {
 
   #initDrawPools = (): DrawPoolGroup => {
     const nucleotideColors = this._styles.colors.nucleotideColors;
-    const drawConfig: DrawConfig = {};
+    const drawConfig: DrawPoolConfig = {};
     PRIMARY_IUPAC_NUCLEOTIDES.forEach((nuc) => {
       const nucColor = nucleotideColors[nuc];
       drawConfig[nuc + NUC_RECT_SUFFIX] = {

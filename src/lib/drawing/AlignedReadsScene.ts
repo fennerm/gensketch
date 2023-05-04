@@ -1,6 +1,7 @@
 /**
  * Drawing aligned reads with pixi.js.
  */
+import { zip } from "lodash-es";
 import { Layer, Group as LayerGroup } from "@pixi/layers";
 import { Viewport } from "pixi-viewport";
 import * as PIXI from "pixi.js";
@@ -20,7 +21,7 @@ import { Scene } from "@lib/drawing/Scene";
 import type { SceneParams } from "@lib/drawing/Scene";
 import {
   DRAW_LETTER_THRESHOLD,
-  type DrawConfig,
+  type DrawPoolConfig,
   DrawPoolGroup,
   drawRect,
   drawText,
@@ -48,8 +49,8 @@ const NUC_TEXT_SUFFIX = "SnvText";
 // Default dimensions in pixels
 const DEFAULT_READ_WIDTH = 100;
 const DEFAULT_NUC_WIDTH = 10;
-const DEFAULT_CAP_WIDTH = DEFAULT_NUC_WIDTH;
-const DEFAULT_PAIR_LINE_HEIGHT = 1;
+const CAP_WIDTH = 5;
+const DEFAULT_PAIR_LINE_HEIGHT = 0.5;
 const DEFAULT_DELETION_LINE_HEIGHT = 1;
 const DEFAULT_DELETION_LABEL_MASK_WIDTH = 2 * DEFAULT_NUC_WIDTH;
 const DEFAULT_INSERTION_WIDTH = 1;
@@ -57,19 +58,20 @@ const DEFAULT_PAIR_LINE_WIDTH = 100;
 const DEFAULT_DELETION_WIDTH = DEFAULT_NUC_WIDTH;
 const DELETION_LABEL_PADDING = 2;
 const INSERTION_LABEL_PADDING = 3;
+const READ_HEIGHT = 20;
+const MISMATCH_FONTSIZE = READ_HEIGHT - 2;
+const DELETION_FONTSIZE = MISMATCH_FONTSIZE;
+const INSERTION_FONTSIZE = READ_HEIGHT - 4;
 
 const DEFAULT_DELETION_LABEL_FONTSIZE = 14;
 const DEFAULT_INSERTION_LABEL_FONTSIZE = DEFAULT_DELETION_LABEL_FONTSIZE;
 
 // Character width as a fraction of the font size
 const FONT_CHAR_WIDTH = 0.6;
-const READ_HEIGHT = 20;
 
 // Vertical spacing between reads in pixels
 const ROW_SPACING = 2;
 const ROW_HEIGHT = READ_HEIGHT + ROW_SPACING;
-const TOOLTIP_HPAD = 6;
-const TOOLTIP_VPAD = 3;
 
 // Minimum length that a deletion needs to be in order to include a label with deletion length
 const MIN_DELETION_LENGTH_FOR_LABEL = 5;
@@ -78,6 +80,11 @@ const TOOLTIP_FIELD_NAME = "Name";
 const TOOLTIP_FIELD_COORDINATES = "Coordinates";
 const TOOLTIP_FIELD_CIGAR = "CIGAR";
 const TOOLTIP_FIELDS = [TOOLTIP_FIELD_NAME, TOOLTIP_FIELD_COORDINATES, TOOLTIP_FIELD_CIGAR];
+const TOOLTIP_HPAD = 6;
+const TOOLTIP_VPAD = 3;
+// If a tooltip edge would be within this many pixels of the screen edge, flip it to the other side
+// of the mouse.
+const TOOLTIP_SCREEN_EDGE_PADDING = 5;
 
 /**
  * Textures used in the scene.
@@ -266,7 +273,7 @@ export class AlignedReadsScene extends Scene {
   _bufferDim: Dimensions;
 
   // Textures used in the scene
-  _textures: AlignedReadsTextures;
+  _textures: Map<string, PIXI.RenderTexture>;
 
   // Genomic coordinates for the region which is currently being displayed
   _focusedRegion: GenomicRegion | null;
@@ -277,29 +284,24 @@ export class AlignedReadsScene extends Scene {
   // Tooltip which is displayed when the user hovers over an aligned read
   _tooltip: AlignedReadTooltip;
 
+  // Offset of the viewport from the top left corner of the buffered region
   _viewportOffset: Position;
+
+  // Width of a single nucleotide in the current viewport
   _nucWidth: number;
+
+  // Layers used in the scene (defines z-order)
   _layers: LayerGroup[];
+
+  // True if the user is currently dragging any element on the page (not just in the scene)
   _isDragging: boolean;
 
   constructor(params: AlignedReadsSceneParams) {
     super({ ...params, layered: true });
     this._handleClick = params.handleClick;
     this._bufferDim = { width: 3 * this._dim.width, height: 3 * this._dim.height };
-    this.viewport = new Viewport({
-      screenWidth: this._dim.width,
-      screenHeight: this._dim.height,
-      worldWidth: this._bufferDim.width,
-      worldHeight: this._bufferDim.height,
-      events: this.pixiApp.renderer.events,
-    });
-    this.pixiApp.stage.addChild(this.viewport);
-    this.viewport.drag().pinch().decelerate().clamp({ direction: "all" });
-    this.viewport.addEventListener("click", this._handleClick);
-    this._layers = range(0, 8).map((i) => new LayerGroup(i, true));
-    // The tooltip layer is on top and has nested layering
-    this._layers[this._layers.length - 1].enableSort = true;
-    this._layers.forEach((layer) => this.pixiApp.stage.addChild(new Layer(layer)));
+    this.viewport = this._initViewport();
+    this._layers = this._initLayers();
     this._textures = this._initTextures();
     this._drawPool = this._initDrawPools();
     this._tooltip = this._initTooltip();
@@ -310,6 +312,31 @@ export class AlignedReadsScene extends Scene {
     this._isDragging = false;
     document.addEventListener("mousedown", this._handleMouseDown);
   }
+
+  /**
+   * Initialize the z-layers used in the scene.
+   */
+  _initLayers = (): LayerGroup[] => {
+    const layers = range(0, 8).map((i) => new LayerGroup(i, true));
+    // The tooltip layer is on top and has nested layering
+    layers[layers.length - 1].enableSort = true;
+    layers.forEach((layer) => this.pixiApp.stage.addChild(new Layer(layer)));
+    return layers;
+  };
+
+  _initViewport = (): Viewport => {
+    const viewport = new Viewport({
+      screenWidth: this._dim.width,
+      screenHeight: this._dim.height,
+      worldWidth: this._bufferDim.width,
+      worldHeight: this._bufferDim.height,
+      events: this.pixiApp.renderer.events,
+    });
+    this.pixiApp.stage.addChild(viewport);
+    viewport.drag({ direction: "y" }).clamp({ direction: "all" });
+    viewport.addEventListener("click", this._handleClick);
+    return viewport;
+  };
 
   get _focusedRegionLength(): number | null {
     if (this._focusedRegion === null) {
@@ -325,6 +352,9 @@ export class AlignedReadsScene extends Scene {
     return Number(getLength(this._alignments.bufferedRegion));
   }
 
+  /**
+   * Called when the user is dragging their mouse.
+   */
   _dragHandler = (): void => {
     this._isDragging = true;
   };
@@ -339,6 +369,9 @@ export class AlignedReadsScene extends Scene {
     document.removeEventListener("mouseup", this._handleMouseUp);
   };
 
+  /**
+   * Initialize the tooltip displayed when the user hovers over an aligned read.
+   */
   _initTooltip = (): AlignedReadTooltip => {
     const tooltip = new AlignedReadTooltip({
       fontSize: this._styles.fonts.tooltipFontSize,
@@ -350,9 +383,9 @@ export class AlignedReadsScene extends Scene {
     return tooltip;
   };
 
-  _initTriangleTexture = (): PIXI.RenderTexture => {
+  _initRenderTexture = (): PIXI.RenderTexture => {
     const texture = PIXI.RenderTexture.create({
-      width: DEFAULT_CAP_WIDTH,
+      width: CAP_WIDTH,
       height: READ_HEIGHT,
       multisample: PIXI.MSAA_QUALITY.HIGH,
       resolution: window.devicePixelRatio,
@@ -360,25 +393,25 @@ export class AlignedReadsScene extends Scene {
     return texture;
   };
 
-  _initTextures = (): AlignedReadsTextures => {
-    const textures = {
-      forwardReadCap: this._initTriangleTexture(),
-      reverseReadCap: this._initTriangleTexture(),
-      insertion: this._initTriangleTexture(),
-    };
+  _initTextures = (): Map<string, PIXI.RenderTexture> => {
+    const textures = new Map([
+      ["forwardReadCap", this._initRenderTexture()],
+      ["reverseReadCap", this._initRenderTexture()],
+      ["insertion", this._initRenderTexture()],
+    ]);
 
     const forwardReadCapTemplate = drawTriangle({
       vertices: [
         { x: 0, y: 0 },
-        { x: DEFAULT_CAP_WIDTH, y: READ_HEIGHT / 2 },
+        { x: CAP_WIDTH, y: READ_HEIGHT / 2 },
         { x: 0, y: READ_HEIGHT },
       ],
       color: 0xffffff,
     });
     const reverseReadCapTemplate = drawTriangle({
       vertices: [
-        { x: DEFAULT_CAP_WIDTH, y: 0 },
-        { x: DEFAULT_CAP_WIDTH, y: READ_HEIGHT },
+        { x: CAP_WIDTH, y: 0 },
+        { x: CAP_WIDTH, y: READ_HEIGHT },
         { x: 0, y: READ_HEIGHT / 2 },
       ],
       color: 0xffffff,
@@ -392,17 +425,14 @@ export class AlignedReadsScene extends Scene {
       color: 0xffffff,
     });
 
-    this.pixiApp.loadRenderTexture({
-      shape: forwardReadCapTemplate,
-      texture: textures.forwardReadCap,
-    });
-    this.pixiApp.loadRenderTexture({
-      shape: reverseReadCapTemplate,
-      texture: textures.reverseReadCap,
-    });
-    this.pixiApp.loadRenderTexture({
-      shape: insertionTemplate,
-      texture: textures.insertion,
+    zip<PIXI.Graphics, PIXI.RenderTexture>(
+      [forwardReadCapTemplate, reverseReadCapTemplate, insertionTemplate],
+      Array.from(textures.values())
+    ).forEach(([template, texture]) => {
+      this.pixiApp.loadRenderTexture({
+        shape: template!,
+        texture: texture!,
+      });
     });
 
     // Required for MSAA, WebGL 2 only
@@ -410,81 +440,105 @@ export class AlignedReadsScene extends Scene {
     return textures;
   };
 
+  /**
+   * Draw sprite for the triangle at the end of the read which indicates its direction.
+   */
   _drawReadCap = ({
     texture,
     pos = { x: 0, y: 0 },
-    dim = { width: DEFAULT_CAP_WIDTH, height: READ_HEIGHT },
+    width = CAP_WIDTH,
     color,
     layer,
   }: {
     texture: PIXI.RenderTexture;
     readonly pos?: Position;
-    readonly dim?: Dimensions;
+    width?: number;
     color?: number;
     layer?: LayerGroup;
   }): PIXI.Sprite => {
     const cap = new PIXI.Sprite(texture);
-    // TODO double check if this setTransform is necessary
-    cap.setTransform();
-    updateIfChanged({ container: cap, pos, dim, layer, color, interactive: true });
+    updateIfChanged({
+      container: cap,
+      pos,
+      dim: { width, height: READ_HEIGHT },
+      layer,
+      color,
+      interactive: true,
+    });
     return cap;
   };
 
   _drawInsertion = ({
     pos = { x: 0, y: 0 },
-    dim = { width: DEFAULT_INSERTION_WIDTH, height: READ_HEIGHT },
+    width = DEFAULT_INSERTION_WIDTH,
     color,
     layer,
   }: {
     readonly pos?: Position;
-    readonly dim?: Dimensions;
+    width?: number;
     color?: number;
     layer?: LayerGroup;
   }): PIXI.Sprite => {
-    const insertion = new PIXI.Sprite(this._textures.insertion);
-    // TODO double check if this setTransform is necessary
-    insertion.setTransform();
-    updateIfChanged({ container: insertion, pos, dim, layer, color });
+    const insertion = new PIXI.Sprite(this._textures.get("insertion")!);
+    updateIfChanged({
+      container: insertion,
+      pos,
+      dim: { width, height: READ_HEIGHT },
+      layer,
+      color,
+    });
     return insertion;
   };
 
   _drawForwardReadCap = ({
     pos,
-    dim,
+    width = CAP_WIDTH,
     color,
     layer,
   }: {
     readonly pos?: Position;
-    readonly dim?: Dimensions;
+    width?: number;
     color?: number;
     layer?: LayerGroup;
   }): PIXI.Sprite => {
-    return this._drawReadCap({ texture: this._textures.forwardReadCap, pos, dim, color, layer });
+    return this._drawReadCap({
+      texture: this._textures.get("forwardReadCap")!,
+      pos,
+      width,
+      color,
+      layer,
+    });
   };
 
   _drawReverseReadCap = ({
     pos,
-    dim,
+    width = CAP_WIDTH,
     color,
     layer,
   }: {
     readonly pos?: Position;
-    readonly dim?: Dimensions;
+    width?: number;
     color?: number;
     layer?: LayerGroup;
   }): PIXI.Sprite => {
-    return this._drawReadCap({ texture: this._textures.reverseReadCap, pos, dim, color, layer });
+    return this._drawReadCap({
+      texture: this._textures.get("reverseReadCap")!,
+      pos,
+      width,
+      color,
+      layer,
+    });
   };
 
   _drawDeletion = ({
     pos,
-    dim = { width: DEFAULT_DELETION_WIDTH, height: READ_HEIGHT },
+    width = DEFAULT_DELETION_WIDTH,
     color,
     backgroundLayer,
     lineLayer,
   }: {
     readonly pos?: Position;
-    readonly dim?: Dimensions;
+    width?: number;
     color?: number;
     backgroundLayer?: LayerGroup;
     lineLayer?: LayerGroup;
@@ -492,23 +546,23 @@ export class AlignedReadsScene extends Scene {
     const container = new PIXI.Container();
     const background = drawRect({
       color: this._styles.colors.background,
-      dim,
+      dim: { width, height: READ_HEIGHT },
       layer: backgroundLayer,
     });
     const line = drawRect({
       color,
-      pos: { x: 0, y: dim.height / 2 - DEFAULT_DELETION_LINE_HEIGHT / 2 },
-      dim: { width: dim.width, height: DEFAULT_DELETION_LINE_HEIGHT },
+      pos: { x: 0, y: READ_HEIGHT / 2 - DEFAULT_DELETION_LINE_HEIGHT / 2 },
+      dim: { width, height: DEFAULT_DELETION_LINE_HEIGHT },
       layer: lineLayer,
     });
     container.addChild(background);
     container.addChild(line);
-    updateIfChanged({ container, pos, dim });
+    updateIfChanged({ container, pos, dim: { width, height: READ_HEIGHT } });
     return container;
   };
 
   _initDrawPools = (): DrawPoolGroup => {
-    const drawConfig: DrawConfig = {};
+    const drawConfig: DrawPoolConfig = {};
     const alignmentColor = this._styles.colors.alignment;
     drawConfig[PAIR_LINE_POOL] = {
       drawFn: () =>
@@ -584,7 +638,7 @@ export class AlignedReadsScene extends Scene {
         this._drawInsertion({
           color: this._styles.colors.insertion,
           layer: this._layers[3],
-          dim: { width: DEFAULT_INSERTION_WIDTH * DEFAULT_NUC_WIDTH, height: READ_HEIGHT },
+          width: DEFAULT_INSERTION_WIDTH,
         }),
       poolsize: 100,
     };
@@ -620,6 +674,9 @@ export class AlignedReadsScene extends Scene {
     return new DrawPoolGroup({ drawConfig, stage: this.viewport });
   };
 
+  /**
+   * Render a line connecting two paired reads.
+   */
   _displayPairLine = ({
     pos,
     alignment,
@@ -629,18 +686,23 @@ export class AlignedReadsScene extends Scene {
   }): void => {
     const linePos = { x: pos.x, y: pos.y + READ_HEIGHT / 2 };
     const dim = {
-      width: Number(alignment.interval.end - alignment.interval.start) * this._nucWidth,
-      height: 0.5,
+      width: Number(getLength(alignment.interval)) * this._nucWidth,
+      height: DEFAULT_PAIR_LINE_HEIGHT,
     };
     this._drawPool.draw(PAIR_LINE_POOL, { pos: linePos, dim });
   };
 
+  /**
+   * Render a single nucleotide mismatch.
+   * @param nuc - The SNV/SNP nucleotide.
+   */
   _displayMismatch = ({ nuc, pos }: { nuc: string; pos: Position }): void => {
+    // TODO Render GAPs properly.
     nuc = nuc !== "-" ? nuc : "GAP";
     if (this._nucWidth > DRAW_LETTER_THRESHOLD) {
       this._drawPool.draw(nuc + NUC_TEXT_SUFFIX, {
         pos,
-        fontSize: READ_HEIGHT - 2,
+        fontSize: MISMATCH_FONTSIZE,
       });
     } else {
       this._drawPool.draw(nuc + NUC_RECT_SUFFIX, {
@@ -650,20 +712,14 @@ export class AlignedReadsScene extends Scene {
     }
   };
 
-  _displayDeletion = ({ diff, pos }: { diff: Deletion; pos: Position }): void => {
-    this._drawPool.draw(DELETION_POOL, {
-      pos,
-      dim: { width: this._nucWidth * Number(getLength(diff.interval)), height: READ_HEIGHT },
-    });
-    const deletionLength = Number(getLength(diff.interval));
-    if (deletionLength < MIN_DELETION_LENGTH_FOR_LABEL) {
-      return;
-    }
-
-    const labelText = String(deletionLength);
-    const fontSize = READ_HEIGHT - 2;
-    const charWidth = FONT_CHAR_WIDTH * fontSize;
-    const deletionPxWidth = deletionLength * this._nucWidth;
+  /**
+   * Render a label on a deletion variant describing the length.
+   * @param length - The deletion length in nucleotides.
+   */
+  _displayDeletionLabel = ({ pos, length }: { pos: Position; length: number }): void => {
+    const labelText = String(length);
+    const charWidth = FONT_CHAR_WIDTH * DELETION_FONTSIZE;
+    const deletionPxWidth = length * this._nucWidth;
     const labelPxWidth = charWidth * labelText.length;
     const labelPos = {
       x: pos.x + deletionPxWidth / 2 - labelPxWidth / 2 - DELETION_LABEL_PADDING,
@@ -676,16 +732,37 @@ export class AlignedReadsScene extends Scene {
     this._drawPool.draw(DELETION_LABEL_POOL, {
       text: labelText,
       pos: { x: labelPos.x + DELETION_LABEL_PADDING, y: labelPos.y },
-      fontSize,
+      fontSize: DELETION_FONTSIZE,
     });
   };
 
-  // Note that `pos` is the center of the insertion (not the left edge as with other variant types)
+  /**
+   * Render a deletion variant.
+   */
+  _displayDeletion = ({ diff, pos }: { diff: Deletion; pos: Position }): void => {
+    this._drawPool.draw(DELETION_POOL, {
+      pos,
+      dim: { width: this._nucWidth * Number(getLength(diff.interval)), height: READ_HEIGHT },
+    });
+    const length = Number(getLength(diff.interval));
+    if (length < MIN_DELETION_LENGTH_FOR_LABEL) {
+      return;
+    }
+    this._displayDeletionLabel({ pos, length });
+  };
+
+  /**
+   * Render an insertion variant.
+   *
+   * @param pos - The position of the center of the insertion (not the left edge as with other
+   *  variant types)
+   */
   _displayInsertion = ({ diff, pos }: { diff: Insertion; pos: Position }): void => {
+    // TODO - Insertions being truncated in wayland
     const insertionLength = diff.sequence.length;
     const labelText = insertionLength == 1 ? diff.sequence : String(insertionLength);
-    const fontSize = READ_HEIGHT - 4;
-    const width = FONT_CHAR_WIDTH * fontSize * labelText.length + 2 * INSERTION_LABEL_PADDING;
+    const width =
+      FONT_CHAR_WIDTH * INSERTION_FONTSIZE * labelText.length + 2 * INSERTION_LABEL_PADDING;
     const x = pos.x - width / 2;
     this._drawPool.draw(INSERTION_POOL, {
       pos: { x, y: pos.y },
@@ -694,10 +771,13 @@ export class AlignedReadsScene extends Scene {
     this._drawPool.draw(INSERTION_LABEL_POOL, {
       text: labelText,
       pos: { x: x + INSERTION_LABEL_PADDING, y: pos.y - 2 },
-      fontSize,
+      fontSize: INSERTION_FONTSIZE,
     });
   };
 
+  /**
+   * Render one or more softclipped bases.
+   */
   _displaySoftClip = ({ diff, pos }: { diff: SoftClip; pos: Position }): void => {
     range(diff.interval.start, diff.interval.end).forEach((basePos) => {
       const x = Number(basePos - this._focusedRegion!.interval.start) * this._nucWidth;
@@ -706,6 +786,9 @@ export class AlignedReadsScene extends Scene {
     });
   };
 
+  /**
+   * Render all variants in an aligned read.
+   */
   _displayDiffs = ({ read, pos }: { readonly read: AlignedRead; readonly pos: Position }): void => {
     read.diffs.forEach((diff) => {
       const diffX =
@@ -728,30 +811,37 @@ export class AlignedReadsScene extends Scene {
     });
   };
 
+  /**
+   * Render a tooltip over a hovered read.
+   */
   _displayTooltip = ({ read, pos }: { readonly read: AlignedRead; pos: Position }) => {
-    // TODO fix tooltip positioning when fields are wide. Perhaps only happening in wayland
     this._tooltip.setRead(read);
     this._tooltip.x = pos.x;
     this._tooltip.y = pos.y;
     if (
-      pos.x - this._viewportOffset.x + this._tooltip.width + 5 >
+      pos.x - this._viewportOffset.x + this._tooltip.width + TOOLTIP_SCREEN_EDGE_PADDING >
       this.canvas.offsetLeft + this.canvas.offsetWidth
     ) {
       this._tooltip.x -= this._tooltip.width;
     }
-    if (pos.y + this._tooltip.height + 5 > this.canvas.offsetTop + this.canvas.offsetHeight) {
+    if (
+      pos.y + this._tooltip.height + TOOLTIP_SCREEN_EDGE_PADDING >
+      this.canvas.offsetTop + this.canvas.offsetHeight
+    ) {
       this._tooltip.y -= this._tooltip.height;
     }
     this._tooltip.visible = true;
-    this.viewport.addChild(this._tooltip);
   };
 
-  _destroyTooltip = (): void => {
+  _removeTooltip = (): void => {
     this._tooltip.visible = false;
   };
 
+  /**
+   * Display a single aligned read.
+   */
   _displayRead = ({ read, pos }: { readonly read: AlignedRead; readonly pos: Position }): void => {
-    const width = Number(read.region.interval.end - read.region.interval.start) * this._nucWidth;
+    const width = Number(getLength(read.region)) * this._nucWidth;
 
     const onMouseOver = (event: PIXI.FederatedPointerEvent): void => {
       if (!this._isDragging) {
@@ -767,21 +857,20 @@ export class AlignedReadsScene extends Scene {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const onMouseOut = (event: PIXI.FederatedPointerEvent): void => {
-      this._destroyTooltip();
+      this._removeTooltip();
     };
 
-    const capWidth = 5;
     if (read.isReverse) {
       this._drawPool.draw(REVERSE_READ_CAP_POOL, {
-        pos: { x: pos.x - capWidth, y: pos.y },
-        dim: { width: capWidth, height: READ_HEIGHT },
+        pos: { x: pos.x - CAP_WIDTH, y: pos.y },
+        dim: { width: CAP_WIDTH, height: READ_HEIGHT },
         onMouseOver,
         onMouseOut,
       });
     } else {
       this._drawPool.draw(FORWARD_READ_CAP_POOL, {
-        pos: { x: pos.x + width - 1, y: pos.y },
-        dim: { width: capWidth, height: READ_HEIGHT },
+        pos: { x: pos.x + width, y: pos.y },
+        dim: { width: CAP_WIDTH, height: READ_HEIGHT },
         onMouseOver,
         onMouseOut,
       });
@@ -822,8 +911,7 @@ export class AlignedReadsScene extends Scene {
       try {
         this._displayRead({ read, pos: { x: readX, y: pos.y } });
       } catch (error) {
-        LOG.warn(String(error));
-        LOG.warn(JSON.stringify(read));
+        LOG.error(`Error displaying read: ${error} - ${JSON.stringify(read)}`);
       }
     });
   };
@@ -834,21 +922,22 @@ export class AlignedReadsScene extends Scene {
     viewportWidth = this._dim.width,
     viewportHeight = this._dim.height,
   }: Partial<AlignedReadsSceneState>): void => {
-    // TODO set interactiveChildren to false on most elements to improve performance
     this._alignments = alignments;
     this._focusedRegion = focusedRegion;
+    this.resize({ width: viewportWidth, height: viewportHeight });
     if (this._alignments === null || this._focusedRegion === null) {
+      this.viewport.resize(this._dim.width, this._dim.height);
       return;
     }
+
     if (
       focusedRegion !== this._focusedRegion ||
       viewportWidth !== this._dim.width ||
       viewportHeight !== this._dim.height
     ) {
-      this._destroyTooltip();
+      this._removeTooltip();
     }
 
-    this.resize({ width: viewportWidth, height: viewportHeight });
     this._nucWidth = this._dim.width / this._focusedRegionLength!;
     this._bufferDim = {
       width: Math.round(this._nucWidth * this._bufferedRegionLength!),
@@ -874,11 +963,7 @@ export class AlignedReadsScene extends Scene {
   scroll = (delta: number): void => {
     let y = this._viewportOffset.y + delta * this._bufferDim.height;
     const maxY = this._bufferDim.height - this._dim.height;
-    if (y < 0) {
-      y = 0;
-    } else if (y > maxY) {
-      y = maxY;
-    }
+    y = Math.min(Math.max(0, y), maxY);
     this._viewportOffset = {
       x: this._viewportOffset.x,
       y,
@@ -892,7 +977,7 @@ export class AlignedReadsScene extends Scene {
       return;
     }
     this.clear();
-    this._destroyTooltip();
+    this._removeTooltip();
 
     LOG.debug(
       `Redrawing AlignmentsView with nucWidth=${this._nucWidth}, regionLength=${
@@ -920,8 +1005,7 @@ export class AlignedReadsScene extends Scene {
 
   destroy = () => {
     this.pixiApp.destroy();
-    this._textures.forwardReadCap.destroy();
-    this._textures.reverseReadCap.destroy();
+    Array.from(this._textures.values()).forEach((texture) => texture.destroy());
     document.removeEventListener("mousedown", this._handleMouseDown);
   };
 }
