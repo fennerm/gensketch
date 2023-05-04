@@ -4,7 +4,16 @@
 import { zip } from "lodash-es";
 import { Layer, Group as LayerGroup } from "@pixi/layers";
 import { Viewport } from "pixi-viewport";
-import * as PIXI from "pixi.js";
+import {
+  MSAA_QUALITY,
+  Container,
+  FederatedPointerEvent,
+  Graphics,
+  RenderTexture,
+  Sprite,
+  Text,
+  TextStyle,
+} from "pixi.js";
 
 import type {
   AlignedPair,
@@ -17,8 +26,7 @@ import type {
   SoftClip,
 } from "@lib/bindings";
 import { PRIMARY_IUPAC_NUCLEOTIDES, SECONDARY_IUPAC_NUCLEOTIDES } from "@lib/constants";
-import { Scene } from "@lib/drawing/Scene";
-import type { SceneParams } from "@lib/drawing/Scene";
+import { Scene, type SceneParams } from "@lib/drawing/Scene";
 import {
   DRAW_LETTER_THRESHOLD,
   type DrawPoolConfig,
@@ -90,29 +98,29 @@ const TOOLTIP_SCREEN_EDGE_PADDING = 5;
  * Textures used in the scene.
  */
 export interface AlignedReadsTextures {
-  forwardReadCap: PIXI.RenderTexture;
-  reverseReadCap: PIXI.RenderTexture;
-  insertion: PIXI.RenderTexture;
+  forwardReadCap: RenderTexture;
+  reverseReadCap: RenderTexture;
+  insertion: RenderTexture;
 }
 
 /**
  * A single field name/value pair to be displayed in the hover tooltip.
  */
-class TooltipField extends PIXI.Container {
+class TooltipField extends Container {
   // Horizontal spacing between the key and value in pixels
   _spacing: number = 6;
 
   // Text style for the field name
-  _keyStyle: PIXI.TextStyle;
+  _keyStyle: TextStyle;
 
   // Text style for the field value
-  _valueStyle: PIXI.TextStyle;
+  _valueStyle: TextStyle;
 
   // Field name
-  _key: PIXI.Text;
+  _key: Text;
 
   // Field value
-  _value: PIXI.Text;
+  _value: Text;
 
   // Layer group (z-index) to display the field
   _layer: LayerGroup;
@@ -124,16 +132,16 @@ class TooltipField extends PIXI.Container {
     layer,
   }: {
     key: string;
-    readonly keyStyle: PIXI.TextStyle;
-    readonly valueStyle: PIXI.TextStyle;
+    readonly keyStyle: TextStyle;
+    readonly valueStyle: TextStyle;
     readonly layer: LayerGroup;
   }) {
     super();
     this._keyStyle = keyStyle;
     this._valueStyle = valueStyle;
     this._layer = layer;
-    this._key = new PIXI.Text(key + ":", this._keyStyle);
-    this._value = new PIXI.Text("", valueStyle);
+    this._key = new Text(key + ":", this._keyStyle);
+    this._value = new Text("", valueStyle);
     this._value.position.set(this._key.width + this._spacing, 0);
 
     for (const obj of [this._key, this._value]) {
@@ -147,12 +155,12 @@ class TooltipField extends PIXI.Container {
 /**
  * Tooltip displayed when the user hovers over an aligned read.
  */
-class AlignedReadTooltip extends PIXI.Container {
+class AlignedReadTooltip extends Container {
   _numFields: number = 3;
   _fontSize: number;
-  _background: PIXI.Sprite;
-  _keyStyle: PIXI.TextStyle;
-  _valueStyle: PIXI.TextStyle;
+  _background: Sprite;
+  _keyStyle: TextStyle;
+  _valueStyle: TextStyle;
   _fields: Map<string, TooltipField>;
   _layer: LayerGroup;
   _maxFieldWidth: number;
@@ -170,11 +178,11 @@ class AlignedReadTooltip extends PIXI.Container {
     this._layer = layer;
     this._fontSize = fontSize;
     this._background = this._initBackground(backgroundColor);
-    this._keyStyle = new PIXI.TextStyle({
+    this._keyStyle = new TextStyle({
       fontSize,
       fontWeight: "bold",
     });
-    this._valueStyle = new PIXI.TextStyle({ fontSize });
+    this._valueStyle = new TextStyle({ fontSize });
     this._maxFieldWidth = 0;
     this._fields = this._initFields();
   }
@@ -184,7 +192,7 @@ class AlignedReadTooltip extends PIXI.Container {
   }
 
   /** Initialize the background bounding box for the tooltip. */
-  _initBackground = (color: number): PIXI.Sprite => {
+  _initBackground = (color: number): Sprite => {
     const background = drawRect({
       color,
       dim: { width: 100, height: TOOLTIP_VPAD * 2 + this._lineHeight * TOOLTIP_FIELDS.length },
@@ -273,7 +281,7 @@ export class AlignedReadsScene extends Scene {
   _bufferDim: Dimensions;
 
   // Textures used in the scene
-  _textures: Map<string, PIXI.RenderTexture>;
+  _textures: Map<string, RenderTexture>;
 
   // Genomic coordinates for the region which is currently being displayed
   _focusedRegion: GenomicRegion | null;
@@ -383,17 +391,17 @@ export class AlignedReadsScene extends Scene {
     return tooltip;
   };
 
-  _initRenderTexture = (): PIXI.RenderTexture => {
-    const texture = PIXI.RenderTexture.create({
+  _initRenderTexture = (): RenderTexture => {
+    const texture = RenderTexture.create({
       width: CAP_WIDTH,
       height: READ_HEIGHT,
-      multisample: PIXI.MSAA_QUALITY.HIGH,
+      multisample: MSAA_QUALITY.HIGH,
       resolution: window.devicePixelRatio,
     });
     return texture;
   };
 
-  _initTextures = (): Map<string, PIXI.RenderTexture> => {
+  _initTextures = (): Map<string, RenderTexture> => {
     const textures = new Map([
       ["forwardReadCap", this._initRenderTexture()],
       ["reverseReadCap", this._initRenderTexture()],
@@ -425,7 +433,7 @@ export class AlignedReadsScene extends Scene {
       color: 0xffffff,
     });
 
-    zip<PIXI.Graphics, PIXI.RenderTexture>(
+    zip<Graphics, RenderTexture>(
       [forwardReadCapTemplate, reverseReadCapTemplate, insertionTemplate],
       Array.from(textures.values())
     ).forEach(([template, texture]) => {
@@ -450,13 +458,13 @@ export class AlignedReadsScene extends Scene {
     color,
     layer,
   }: {
-    texture: PIXI.RenderTexture;
+    texture: RenderTexture;
     readonly pos?: Position;
     width?: number;
     color?: number;
     layer?: LayerGroup;
-  }): PIXI.Sprite => {
-    const cap = new PIXI.Sprite(texture);
+  }): Sprite => {
+    const cap = new Sprite(texture);
     updateIfChanged({
       container: cap,
       pos,
@@ -478,8 +486,8 @@ export class AlignedReadsScene extends Scene {
     width?: number;
     color?: number;
     layer?: LayerGroup;
-  }): PIXI.Sprite => {
-    const insertion = new PIXI.Sprite(this._textures.get("insertion")!);
+  }): Sprite => {
+    const insertion = new Sprite(this._textures.get("insertion")!);
     updateIfChanged({
       container: insertion,
       pos,
@@ -500,7 +508,7 @@ export class AlignedReadsScene extends Scene {
     width?: number;
     color?: number;
     layer?: LayerGroup;
-  }): PIXI.Sprite => {
+  }): Sprite => {
     return this._drawReadCap({
       texture: this._textures.get("forwardReadCap")!,
       pos,
@@ -520,7 +528,7 @@ export class AlignedReadsScene extends Scene {
     width?: number;
     color?: number;
     layer?: LayerGroup;
-  }): PIXI.Sprite => {
+  }): Sprite => {
     return this._drawReadCap({
       texture: this._textures.get("reverseReadCap")!,
       pos,
@@ -542,8 +550,8 @@ export class AlignedReadsScene extends Scene {
     color?: number;
     backgroundLayer?: LayerGroup;
     lineLayer?: LayerGroup;
-  }): PIXI.Container => {
-    const container = new PIXI.Container();
+  }): Container => {
+    const container = new Container();
     const background = drawRect({
       color: this._styles.colors.background,
       dim: { width, height: READ_HEIGHT },
@@ -843,7 +851,7 @@ export class AlignedReadsScene extends Scene {
   _displayRead = ({ read, pos }: { readonly read: AlignedRead; readonly pos: Position }): void => {
     const width = Number(getLength(read.region)) * this._nucWidth;
 
-    const onMouseOver = (event: PIXI.FederatedPointerEvent): void => {
+    const onMouseOver = (event: FederatedPointerEvent): void => {
       if (!this._isDragging) {
         this._displayTooltip({
           read,
@@ -856,7 +864,7 @@ export class AlignedReadsScene extends Scene {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const onMouseOut = (event: PIXI.FederatedPointerEvent): void => {
+    const onMouseOut = (event: FederatedPointerEvent): void => {
       this._removeTooltip();
     };
 

@@ -1,10 +1,21 @@
 import { type Group as LayerGroup, Stage as LayeredStage } from "@pixi/layers";
-import * as PIXI from "pixi.js";
+import {
+  BitmapFont,
+  BitmapText,
+  Container,
+  FederatedPointerEvent,
+  Graphics,
+  type IBitmapTextStyle,
+  Renderer,
+  RenderTexture,
+  Sprite,
+  Texture,
+  Ticker,
+} from "pixi.js";
 
 import { ValidationError } from "@lib/errors";
 import LOG from "@lib/logger";
-import type { Dimensions, Position } from "@lib/types";
-import { assertIsDefined } from "@lib/types";
+import { assertIsDefined, type Dimensions, type Position } from "@lib/types";
 import { range } from "@lib/util";
 
 import DejaVuSansMonoPngUrl from "../../assets/DejaVuSansMono_0.png?url";
@@ -13,16 +24,16 @@ import DejaVuSansMonoFntContents from "../../assets/DejaVuSansMono.fnt?raw";
 export const DRAW_LETTER_THRESHOLD = 12;
 
 export const loadPixiAssets = (): void => {
-  const pngTexture = PIXI.Texture.from(DejaVuSansMonoPngUrl);
-  PIXI.BitmapFont.install(DejaVuSansMonoFntContents, pngTexture);
+  const pngTexture = Texture.from(DejaVuSansMonoPngUrl);
+  BitmapFont.install(DejaVuSansMonoFntContents, pngTexture);
   LOG.debug("PIXI assets loaded");
 };
 
-export const isBitmapText = (obj: any): obj is PIXI.BitmapText => {
+export const isBitmapText = (obj: any): obj is BitmapText => {
   return obj.fontSize !== undefined;
 };
 
-export const hasTint = (obj: any): obj is PIXI.Sprite => {
+export const hasTint = (obj: any): obj is Sprite => {
   return obj.tint !== undefined;
 };
 
@@ -43,15 +54,15 @@ export const updateIfChanged = ({
   layer,
   color,
 }: {
-  container: PIXI.Container;
+  container: Container;
   readonly pos?: Position;
   readonly dim?: Dimensions;
   fontSize?: number;
   text?: string;
   visible?: boolean;
   interactive?: boolean;
-  onMouseOver?: (event: PIXI.FederatedPointerEvent) => void;
-  onMouseOut?: (event: PIXI.FederatedPointerEvent) => void;
+  onMouseOver?: (event: FederatedPointerEvent) => void;
+  onMouseOut?: (event: FederatedPointerEvent) => void;
   layer?: LayerGroup;
   color?: number;
 }): void => {
@@ -101,9 +112,9 @@ export interface PixiConstructorParams {
 }
 
 export class PixiApplication {
-  renderer: PIXI.Renderer;
-  ticker: PIXI.Ticker;
-  stage: PIXI.Container;
+  renderer: Renderer;
+  ticker: Ticker;
+  stage: Container;
 
   constructor({
     dim = { width: 800, height: 600 },
@@ -112,7 +123,7 @@ export class PixiApplication {
     dim: Dimensions;
     layered: boolean;
   }) {
-    this.renderer = new PIXI.Renderer({
+    this.renderer = new Renderer({
       backgroundAlpha: 0,
       antialias: true,
       resolution: window.devicePixelRatio,
@@ -123,9 +134,9 @@ export class PixiApplication {
       this.stage = new LayeredStage();
       this.stage.sortableChildren = true;
     } else {
-      this.stage = new PIXI.Container();
+      this.stage = new Container();
     }
-    this.ticker = new PIXI.Ticker();
+    this.ticker = new Ticker();
 
     this.ticker.add(() => {
       this.renderer.render(this.stage);
@@ -138,8 +149,8 @@ export class PixiApplication {
     texture,
     cleanupGraphic = true,
   }: {
-    shape: PIXI.Graphics;
-    readonly texture: PIXI.RenderTexture;
+    shape: Graphics;
+    readonly texture: RenderTexture;
     cleanupGraphic?: boolean;
   }): void => {
     this.renderer.render(shape, { renderTexture: texture });
@@ -166,7 +177,7 @@ export type DrawId = string;
 
 export interface TaggedDrawObject {
   id: DrawId;
-  object: PIXI.Container;
+  object: Container;
 }
 
 export interface DrawArgs {
@@ -174,19 +185,19 @@ export interface DrawArgs {
   dim?: Dimensions;
   text?: string;
   fontSize?: number;
-  onMouseOver?: (event: PIXI.FederatedPointerEvent) => void;
-  onMouseOut?: (event: PIXI.FederatedPointerEvent) => void;
+  onMouseOver?: (event: FederatedPointerEvent) => void;
+  onMouseOut?: (event: FederatedPointerEvent) => void;
 }
 
-export type DrawFunction = () => PIXI.Container;
+export type DrawFunction = () => Container;
 
 export class DrawPool {
   id: number;
-  stage: PIXI.Container;
+  stage: Container;
   drawFn: DrawFunction;
   poolsize: number;
   objects: TaggedDrawObject[];
-  activeObjects: Map<DrawId, PIXI.Container>;
+  activeObjects: Map<DrawId, Container>;
   stepSize: number;
 
   constructor({
@@ -195,8 +206,8 @@ export class DrawPool {
     poolsize,
     stepSize,
   }: {
-    stage: PIXI.Container;
-    drawFn: () => PIXI.Container;
+    stage: Container;
+    drawFn: () => Container;
     poolsize?: number;
     stepSize?: number;
   }) {
@@ -210,12 +221,12 @@ export class DrawPool {
     this.stepSize = stepSize === undefined ? 100 : stepSize;
     this.drawFn = drawFn;
     this.objects = [];
-    this.activeObjects = new Map<DrawId, PIXI.Container>();
+    this.activeObjects = new Map<DrawId, Container>();
     this.poolsize = 0;
     this.expandPool(poolsize);
   }
 
-  addToStage = (object: PIXI.Container) => {
+  addToStage = (object: Container) => {
     this.stage.addChild(object);
   };
 
@@ -283,9 +294,9 @@ export interface ManagedDrawObject extends TaggedDrawObject {
 export class DrawPoolGroup {
   drawConfig: DrawPoolConfig;
   pools: Map<DrawClass, DrawPool>;
-  stage: PIXI.Container;
+  stage: Container;
 
-  constructor({ drawConfig, stage }: { drawConfig: DrawPoolConfig; stage: PIXI.Container }) {
+  constructor({ drawConfig, stage }: { drawConfig: DrawPoolConfig; stage: Container }) {
     this.drawConfig = drawConfig;
     this.pools = new Map();
     this.stage = stage;
@@ -327,8 +338,8 @@ export const drawTriangle = ({
   readonly vertices: TriangleVertices;
   color: number;
   layer?: LayerGroup;
-}): PIXI.Graphics => {
-  const triangle = new PIXI.Graphics();
+}): Graphics => {
+  const triangle = new Graphics();
   const lastVertex = vertices[vertices.length - 1];
   triangle.beginFill(color).moveTo(lastVertex.x, lastVertex.y);
   vertices.forEach((vertex) => {
@@ -353,8 +364,8 @@ export const drawRect = ({
   dim?: Dimensions;
   interactive?: boolean;
   layer?: LayerGroup;
-}): PIXI.Sprite => {
-  const rect = PIXI.Sprite.from(PIXI.Texture.WHITE);
+}): Sprite => {
+  const rect = Sprite.from(Texture.WHITE);
   rect.width = dim.width;
   rect.height = dim.height;
   rect.interactive = interactive;
@@ -376,14 +387,14 @@ export const drawText = ({
 }: {
   text: string;
   pos?: Position;
-  style?: Partial<PIXI.IBitmapTextStyle>;
+  style?: Partial<IBitmapTextStyle>;
   layer?: LayerGroup;
-}): PIXI.BitmapText => {
+}): BitmapText => {
   style = style === undefined ? {} : style;
   style.fontSize = style.fontSize === undefined ? 20 : style.fontSize;
   style.fontName = style.fontName === undefined ? "DejaVu Sans Mono" : style.fontName;
   style.align = style.align === undefined ? "center" : style.align;
-  const textObj = new PIXI.BitmapText(text, style);
+  const textObj = new BitmapText(text, style);
   if (layer !== undefined) {
     textObj.parentGroup = layer;
   }
