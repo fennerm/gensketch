@@ -1,3 +1,4 @@
+<!-- An alert for the user to be displayed in the alert area.-->
 <svelte:options immutable={true} />
 
 <script lang="ts">

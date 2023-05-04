@@ -1,3 +1,4 @@
+<!-- Area where alerts to the user are displayed. -->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -7,6 +8,7 @@
   import { ALERT_STORE, type AlertStatus } from "@lib/stores/AlertStore";
 
   let alerts: AlertStatus[];
+
   const unsubscribe = ALERT_STORE.subscribe((value) => {
     const activeAlerts = value.filter((alert) => alert.active);
     if (activeAlerts.length < 3) {
