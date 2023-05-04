@@ -7,10 +7,11 @@
   import Spinner from "@lib/components/Spinner.svelte";
   import { ALERT_STORE, type AlertStatus } from "@lib/stores/AlertStore";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
+  import { hexToString } from "@lib/util";
 
   export let alert: AlertStatus;
 
-  const errorColor = `#${$USER_CONFIG_STORE!.styles.colors.error.toString(16)}`;
+  const errorColor = hexToString($USER_CONFIG_STORE!.styles.colors.error);
 </script>
 
 <div class="alert">

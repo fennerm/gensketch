@@ -1,25 +1,5 @@
 import { sum } from "lodash-es";
 
-export const randomSequence = ({
-  alphabet,
-  length,
-}: {
-  alphabet: string;
-  length: number;
-}): string => {
-  let result = " ";
-  const charactersLength = alphabet.length;
-  for (let i = 0; i < length; i++) {
-    result += alphabet.charAt(Math.floor(Math.random() * charactersLength));
-  }
-
-  return result;
-};
-
-export const randomGenomicSequence = (length: number): string => {
-  return randomSequence({ length, alphabet: "ACGTN" });
-};
-
 export const monkeyPatchBigInt = () => {
   Object.defineProperty(BigInt.prototype, "toJSON", {
     get() {

@@ -5,10 +5,11 @@
   import Icon from "@iconify/svelte";
 
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
+  import { hexToString } from "@lib/util";
 
   export let message: string;
 
-  let color = `#${$USER_CONFIG_STORE!.styles.colors.error.toString(16)}`;
+  let color = hexToString($USER_CONFIG_STORE!.styles.colors.error);
 </script>
 
 <div class="error-wrapper">

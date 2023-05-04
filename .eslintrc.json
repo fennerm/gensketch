@@ -25,7 +25,7 @@
   "env": {
     "browser": true
   },
-  "ignorePatterns": ["src-tauri", "node_modules", "dist", "build", ".svelte-kit", "vite.config.ts"],
+  "ignorePatterns": ["src-tauri", "node_modules", "dist", "build", ".svelte-kit", "vite.config.ts", "**/*.test.ts"],
   "rules": {
     "no-unused-vars": "off",
     "no-self-assign": "off",

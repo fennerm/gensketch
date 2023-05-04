@@ -1,7 +1,8 @@
-// Bindings to types returned from the backend.
-//
-// These are manually updated for the time being. I experimented with auto-generating them with
-// ts-rs but it became a huge mess due to problems with bigint serialization.
+/**
+ * Bindings to types returned from the backend.
+ * These are manually updated for the time being. I experimented with auto-generating them with
+ * ts-rs but it became a huge mess due to problems with bigint serialization.
+ */
 import type { IUPACNucleotide } from "@lib/types";
 
 export type AlignedPair =

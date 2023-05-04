@@ -31,7 +31,7 @@
         "tauri-build": "tauri build",
         "tauri-dev": "RUST_BACKTRACE=1 RUST_LOG=debug tauri dev",
         "typecov": "type-coverage --strict --detail --ignore-catch | grep -v error",
-        "test-frontend": "NODE_NO_WARNINGS=1 NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --config package.json src",
+        "test-frontend": "NODE_NO_WARNINGS=1 NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --silent --config package.json src",
         "test-backend": "RUST_BACKTRACE=1 RUST_LOG=debug cargo test",
         "test": "npm run test-backend; npm run test-frontend"
     },

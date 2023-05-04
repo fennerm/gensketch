@@ -1,3 +1,6 @@
+/**
+ * Svelte store which contains the user's configuration.
+ */
 import { writable } from "svelte/store";
 
 import type { UserConfig } from "@lib/bindings";

@@ -1,3 +1,6 @@
+/**
+ * Constants which are needed throughout the application.
+ */
 import type { IUPACNucleotide } from "@lib/types";
 
 export const DIVIDER_PX = 2;

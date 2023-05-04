@@ -1,3 +1,4 @@
+/** Utilities for handling errors. */
 import { ALERT_STORE } from "@lib/stores/AlertStore";
 import LOG from "@lib/logger";
 import { isString } from "@lib/util";

@@ -1,3 +1,4 @@
+/** Reusable test fixtures. */
 import type { UserConfig } from "@lib/bindings";
 
 export const fakeUserConfig = (): UserConfig => {

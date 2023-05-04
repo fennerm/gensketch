@@ -9,7 +9,7 @@
   import Toolbar from "@lib/components/Toolbar.svelte";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
-  import { monkeyPatchBigInt } from "@lib/util";
+  import { hexToString, monkeyPatchBigInt } from "@lib/util";
   import AlertArea from "@lib/components/AlertArea.svelte";
 
   // Maximum keyboard repeat rate for panning focused split. This is prevent the backend from
@@ -22,7 +22,7 @@
   const updateTheme = (styles: StyleConfig) => {
     for (let [prop, color] of Object.entries(styles.colors)) {
       let varString = `--color-${prop}`;
-      document.documentElement.style.setProperty(varString, `#${color.toString(16)}`);
+      document.documentElement.style.setProperty(varString, hexToString(color));
     }
     LOG.debug("Received updated user config, refreshing theme");
   };
