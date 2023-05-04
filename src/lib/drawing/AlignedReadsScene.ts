@@ -194,7 +194,7 @@ class AlignedReadTooltip extends Container {
   /** Initialize the background bounding box for the tooltip. */
   _initBackground = (color: number): Sprite => {
     const background = drawRect({
-      color,
+      tint: color,
       dim: { width: 100, height: TOOLTIP_VPAD * 2 + this._lineHeight * TOOLTIP_FIELDS.length },
       layer: this._layer,
     });
@@ -414,7 +414,7 @@ export class AlignedReadsScene extends Scene {
         { x: CAP_WIDTH, y: READ_HEIGHT / 2 },
         { x: 0, y: READ_HEIGHT },
       ],
-      color: 0xffffff,
+      tint: 0xffffff,
     });
     const reverseReadCapTemplate = drawTriangle({
       vertices: [
@@ -422,7 +422,7 @@ export class AlignedReadsScene extends Scene {
         { x: CAP_WIDTH, y: READ_HEIGHT },
         { x: 0, y: READ_HEIGHT / 2 },
       ],
-      color: 0xffffff,
+      tint: 0xffffff,
     });
     const insertionTemplate = drawTriangle({
       vertices: [
@@ -430,7 +430,7 @@ export class AlignedReadsScene extends Scene {
         { x: DEFAULT_INSERTION_WIDTH * DEFAULT_NUC_WIDTH, y: 0 },
         { x: (DEFAULT_INSERTION_WIDTH * DEFAULT_NUC_WIDTH) / 2, y: READ_HEIGHT },
       ],
-      color: 0xffffff,
+      tint: 0xffffff,
     });
 
     zip<Graphics, RenderTexture>(
@@ -455,13 +455,13 @@ export class AlignedReadsScene extends Scene {
     texture,
     pos = { x: 0, y: 0 },
     width = CAP_WIDTH,
-    color,
+    tint,
     layer,
   }: {
     texture: RenderTexture;
     readonly pos?: Position;
     width?: number;
-    color?: number;
+    tint?: number;
     layer?: LayerGroup;
   }): Sprite => {
     const cap = new Sprite(texture);
@@ -470,7 +470,7 @@ export class AlignedReadsScene extends Scene {
       pos,
       dim: { width, height: READ_HEIGHT },
       layer,
-      color,
+      tint,
       interactive: true,
     });
     return cap;
@@ -479,12 +479,12 @@ export class AlignedReadsScene extends Scene {
   _drawInsertion = ({
     pos = { x: 0, y: 0 },
     width = DEFAULT_INSERTION_WIDTH,
-    color,
+    tint,
     layer,
   }: {
     readonly pos?: Position;
     width?: number;
-    color?: number;
+    tint?: number;
     layer?: LayerGroup;
   }): Sprite => {
     const insertion = new Sprite(this._textures.get("insertion")!);
@@ -493,7 +493,7 @@ export class AlignedReadsScene extends Scene {
       pos,
       dim: { width, height: READ_HEIGHT },
       layer,
-      color,
+      tint,
     });
     return insertion;
   };
@@ -501,19 +501,19 @@ export class AlignedReadsScene extends Scene {
   _drawForwardReadCap = ({
     pos,
     width = CAP_WIDTH,
-    color,
+    tint,
     layer,
   }: {
     readonly pos?: Position;
     width?: number;
-    color?: number;
+    tint?: number;
     layer?: LayerGroup;
   }): Sprite => {
     return this._drawReadCap({
       texture: this._textures.get("forwardReadCap")!,
       pos,
       width,
-      color,
+      tint,
       layer,
     });
   };
@@ -521,19 +521,19 @@ export class AlignedReadsScene extends Scene {
   _drawReverseReadCap = ({
     pos,
     width = CAP_WIDTH,
-    color,
+    tint,
     layer,
   }: {
     readonly pos?: Position;
     width?: number;
-    color?: number;
+    tint?: number;
     layer?: LayerGroup;
   }): Sprite => {
     return this._drawReadCap({
       texture: this._textures.get("reverseReadCap")!,
       pos,
       width,
-      color,
+      tint,
       layer,
     });
   };
@@ -553,12 +553,12 @@ export class AlignedReadsScene extends Scene {
   }): Container => {
     const container = new Container();
     const background = drawRect({
-      color: this._styles.colors.background,
+      tint: this._styles.colors.background,
       dim: { width, height: READ_HEIGHT },
       layer: backgroundLayer,
     });
     const line = drawRect({
-      color,
+      tint: color,
       pos: { x: 0, y: READ_HEIGHT / 2 - DEFAULT_DELETION_LINE_HEIGHT / 2 },
       dim: { width, height: DEFAULT_DELETION_LINE_HEIGHT },
       layer: lineLayer,
@@ -575,7 +575,7 @@ export class AlignedReadsScene extends Scene {
     drawConfig[PAIR_LINE_POOL] = {
       drawFn: () =>
         drawRect({
-          color: 0x000000,
+          tint: 0x000000,
           dim: { width: DEFAULT_PAIR_LINE_WIDTH, height: DEFAULT_PAIR_LINE_HEIGHT },
           layer: this._layers[0],
         }),
@@ -584,7 +584,7 @@ export class AlignedReadsScene extends Scene {
     drawConfig[READ_BODY_POOL] = {
       drawFn: () =>
         drawRect({
-          color: alignmentColor,
+          tint: alignmentColor,
           interactive: true,
           dim: { width: DEFAULT_READ_WIDTH, height: READ_HEIGHT },
           layer: this._layers[1],
@@ -592,11 +592,11 @@ export class AlignedReadsScene extends Scene {
       poolsize: 500,
     };
     drawConfig[FORWARD_READ_CAP_POOL] = {
-      drawFn: () => this._drawForwardReadCap({ color: alignmentColor, layer: this._layers[1] }),
+      drawFn: () => this._drawForwardReadCap({ tint: alignmentColor, layer: this._layers[1] }),
       poolsize: 250,
     };
     drawConfig[REVERSE_READ_CAP_POOL] = {
-      drawFn: () => this._drawReverseReadCap({ color: alignmentColor, layer: this._layers[1] }),
+      drawFn: () => this._drawReverseReadCap({ tint: alignmentColor, layer: this._layers[1] }),
       poolsize: 250,
     };
 
@@ -605,7 +605,7 @@ export class AlignedReadsScene extends Scene {
       drawConfig[nuc + NUC_RECT_SUFFIX] = {
         drawFn: () =>
           drawRect({
-            color: nucColor,
+            tint: nucColor,
             dim: { width: DEFAULT_NUC_WIDTH, height: READ_HEIGHT },
             layer: this._layers[2],
           }),
@@ -621,7 +621,7 @@ export class AlignedReadsScene extends Scene {
       drawConfig[nuc + NUC_RECT_SUFFIX] = {
         drawFn: () =>
           drawRect({
-            color: nucColor,
+            tint: nucColor,
             dim: { width: DEFAULT_NUC_WIDTH, height: READ_HEIGHT },
             layer: this._layers[2],
           }),
@@ -644,7 +644,7 @@ export class AlignedReadsScene extends Scene {
     drawConfig[INSERTION_POOL] = {
       drawFn: () =>
         this._drawInsertion({
-          color: this._styles.colors.insertion,
+          tint: this._styles.colors.insertion,
           layer: this._layers[3],
           width: DEFAULT_INSERTION_WIDTH,
         }),
@@ -665,7 +665,7 @@ export class AlignedReadsScene extends Scene {
     drawConfig[DELETION_LABEL_MASK_POOL] = {
       drawFn: () =>
         drawRect({
-          color: this._styles.colors.background,
+          tint: this._styles.colors.background,
           dim: { width: DEFAULT_DELETION_LABEL_MASK_WIDTH, height: READ_HEIGHT },
           layer: this._layers[5],
         }),

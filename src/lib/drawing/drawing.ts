@@ -21,8 +21,13 @@ import { range } from "@lib/util";
 import DejaVuSansMonoPngUrl from "../../assets/DejaVuSansMono_0.png?url";
 import DejaVuSansMonoFntContents from "../../assets/DejaVuSansMono.fnt?raw";
 
+// If the width of a nucleotide in pixels is greater than this threshold then render the letter
+// rather than a colored rectangle.
 export const DRAW_LETTER_THRESHOLD = 12;
 
+/**
+ * Load shared PIXI assets (e.g. fonts) into the PIXI cache.
+ */
 export const loadPixiAssets = (): void => {
   const pngTexture = Texture.from(DejaVuSansMonoPngUrl);
   BitmapFont.install(DejaVuSansMonoFntContents, pngTexture);
@@ -37,10 +42,27 @@ export const hasTint = (obj: any): obj is Sprite => {
   return obj.tint !== undefined;
 };
 
-// Update the attributes of a PIXI sprite but only if they actually changed.
-//
-// I'm unsure if this guard is actually necessary, but including it to be safe.
-// TODO Remove this method and just use the PIXI update method directly.
+export interface DrawArgs {
+  readonly pos?: Position;
+  readonly dim?: Dimensions;
+  text?: string;
+  fontSize?: number;
+  interactive?: boolean;
+  interactiveChildren?: boolean;
+  layer?: LayerGroup;
+  tint?: number;
+  onMouseOver?: (event: FederatedPointerEvent) => void;
+  onMouseOut?: (event: FederatedPointerEvent) => void;
+}
+
+export interface UpdateDrawArgs extends DrawArgs {
+  container: Container;
+  visible?: boolean;
+}
+
+/**
+ * Update attributes of a PIXI object if they have changed.
+ */
 export const updateIfChanged = ({
   container,
   pos,
@@ -49,24 +71,12 @@ export const updateIfChanged = ({
   text,
   visible,
   interactive,
+  interactiveChildren,
   onMouseOver,
   onMouseOut,
   layer,
-  color,
-}: {
-  container: Container;
-  readonly pos?: Position;
-  readonly dim?: Dimensions;
-  fontSize?: number;
-  text?: string;
-  visible?: boolean;
-  interactive?: boolean;
-  onMouseOver?: (event: FederatedPointerEvent) => void;
-  onMouseOut?: (event: FederatedPointerEvent) => void;
-  layer?: LayerGroup;
-  color?: number;
-}): void => {
-  // TODO set interactiveChildren to false on most elements to improve performance
+  tint,
+}: UpdateDrawArgs): void => {
   if (pos !== undefined && pos.x !== container.x) {
     container.x = pos.x;
   }
@@ -82,11 +92,14 @@ export const updateIfChanged = ({
   if (visible !== undefined && container.visible !== visible) {
     container.visible = visible;
   }
-  if (hasTint(container) && color !== undefined && container.tint !== color) {
-    container.tint = color;
+  if (hasTint(container) && tint !== undefined && container.tint !== tint) {
+    container.tint = tint;
   }
   if (interactive !== undefined && container.interactive !== interactive) {
     container.interactive = interactive;
+  }
+  if (interactiveChildren !== undefined && container.interactiveChildren !== interactiveChildren) {
+    container.interactiveChildren = interactiveChildren;
   }
   if (onMouseOver !== undefined) {
     container.addEventListener("mouseover", onMouseOver);
@@ -106,10 +119,6 @@ export const updateIfChanged = ({
     }
   }
 };
-
-export interface PixiConstructorParams {
-  backgroundColor: number;
-}
 
 export class PixiApplication {
   renderer: Renderer;
@@ -178,15 +187,6 @@ export type DrawId = string;
 export interface TaggedDrawObject {
   id: DrawId;
   object: Container;
-}
-
-export interface DrawArgs {
-  pos?: Position;
-  dim?: Dimensions;
-  text?: string;
-  fontSize?: number;
-  onMouseOver?: (event: FederatedPointerEvent) => void;
-  onMouseOut?: (event: FederatedPointerEvent) => void;
 }
 
 export type DrawFunction = () => Container;
@@ -332,16 +332,16 @@ export type TriangleVertices = [Position, Position, Position];
 
 export const drawTriangle = ({
   vertices,
-  color,
+  tint,
   layer,
 }: {
   readonly vertices: TriangleVertices;
-  color: number;
+  tint: number;
   layer?: LayerGroup;
 }): Graphics => {
   const triangle = new Graphics();
   const lastVertex = vertices[vertices.length - 1];
-  triangle.beginFill(color).moveTo(lastVertex.x, lastVertex.y);
+  triangle.beginFill(tint).moveTo(lastVertex.x, lastVertex.y);
   vertices.forEach((vertex) => {
     triangle.lineTo(vertex.x, vertex.y);
   });
@@ -353,29 +353,14 @@ export const drawTriangle = ({
 };
 
 export const drawRect = ({
-  color,
   pos = { x: 0, y: 0 },
   dim = { width: 10, height: 5 },
   interactive = false,
-  layer,
-}: {
-  color?: number;
-  pos?: Position;
-  dim?: Dimensions;
-  interactive?: boolean;
-  layer?: LayerGroup;
-}): Sprite => {
+  interactiveChildren = false,
+  ...drawArgs
+}: DrawArgs): Sprite => {
   const rect = Sprite.from(Texture.WHITE);
-  rect.width = dim.width;
-  rect.height = dim.height;
-  rect.interactive = interactive;
-  rect.position.set(pos.x, pos.y);
-  if (color !== undefined) {
-    rect.tint = color;
-  }
-  if (layer !== undefined) {
-    rect.parentGroup = layer;
-  }
+  updateIfChanged({ container: rect, pos, dim, interactive, interactiveChildren, ...drawArgs });
   return rect;
 };
 

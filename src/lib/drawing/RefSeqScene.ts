@@ -57,7 +57,7 @@ export class RefSeqScene extends Scene {
       drawConfig[nuc + NUC_RECT_SUFFIX] = {
         drawFn: () =>
           drawRect({
-            color: nucColor,
+            tint: nucColor,
             dim: { width: 10, height: 15 },
           }),
         poolsize: 1000,
@@ -72,7 +72,7 @@ export class RefSeqScene extends Scene {
       drawConfig[nuc + NUC_RECT_SUFFIX] = {
         drawFn: () =>
           drawRect({
-            color: nucColor,
+            tint: nucColor,
             dim: { width: 10, height: 20 },
           }),
         poolsize: 10,
