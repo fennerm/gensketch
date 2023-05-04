@@ -10,6 +10,7 @@
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
   import { monkeyPatchBigInt } from "@lib/util";
+  import AlertArea from "@lib/components/AlertArea.svelte";
 
   // Maximum keyboard repeat rate for panning focused split. This is prevent the backend from
   // getting overwhelmed when arrow keys are held down.
@@ -68,6 +69,7 @@
   {#if $USER_CONFIG_STORE !== null}
     <Toolbar />
     <SplitGrid />
+    <AlertArea />
   {/if}
 </main>
 

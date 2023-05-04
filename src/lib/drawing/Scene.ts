@@ -1,3 +1,6 @@
+/**
+ * Scene abstract base class.
+ */
 import type { StyleConfig } from "@lib/bindings";
 import { type DrawPoolGroup, PixiApplication } from "@lib/drawing/drawing";
 import type { Dimensions } from "@lib/types";
@@ -9,6 +12,9 @@ export interface SceneParams {
   layered?: boolean;
 }
 
+/**
+ * A scene manages a pixi.js application and the canvas element it draws to.
+ */
 export abstract class Scene {
   pixiApp: PixiApplication;
   canvas: HTMLElement;

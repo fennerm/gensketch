@@ -31,6 +31,7 @@ pub struct ColorConfig {
     pub error: u32,
     pub error_background: u32,
     pub foreground: u32,
+    pub light_foreground: u32,
     pub insertion: u32,
     pub nucleotide_colors: NucleotideColorConfig,
     pub secondary_text: u32,
@@ -84,6 +85,7 @@ pub fn read_user_config() -> Result<UserConfig> {
                 error: parse_hex("#e63519")?,
                 error_background: parse_hex("#f7c2ba")?,
                 foreground: parse_hex("#222222")?,
+                light_foreground: parse_hex("#bfbfbf")?,
                 track_label_background: parse_hex("#243f47")?,
                 secondary_text: parse_hex("#f2f2f2")?,
                 nucleotide_colors: NucleotideColorConfig {

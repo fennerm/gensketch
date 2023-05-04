@@ -122,7 +122,7 @@ export interface UnpairedRead {
   interval: GenomicInterval;
 }
 
-export type AlertStatusValue = "error" | "inProgress" | "complete";
+export type AlertStatusValue = "error" | "inProgress" | "info";
 
 export interface AlertData {
   status: AlertStatusValue;

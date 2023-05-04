@@ -1,3 +1,7 @@
+/**
+ * Utilities for webGL drawing using PIXI.js.
+ */
+
 import { type Group as LayerGroup, Stage as LayeredStage } from "@pixi/layers";
 import {
   BitmapFont,

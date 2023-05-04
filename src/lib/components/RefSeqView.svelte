@@ -25,6 +25,7 @@
   import { to1IndexedString } from "@lib/genomicCoordinates";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
+  import { ALERT_STORE } from "@lib/stores/AlertStore";
 
   export let splitId: string;
   export let widthPct: number;
