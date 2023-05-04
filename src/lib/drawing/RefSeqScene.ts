@@ -63,7 +63,7 @@ export class RefSeqScene extends Scene {
         poolsize: 1000,
       };
       drawConfig[nuc + NUC_TEXT_SUFFIX] = {
-        drawFn: () => drawText({ text: nuc, style: { tint: nucColor, fontSize: 15 } }),
+        drawFn: () => drawText({ text: nuc, style: { tint: nucColor } }),
         poolsize: 100,
       };
     });
@@ -78,7 +78,7 @@ export class RefSeqScene extends Scene {
         poolsize: 10,
       };
       drawConfig[nuc + NUC_TEXT_SUFFIX] = {
-        drawFn: () => drawText({ text: nuc, style: { tint: nucColor, fontSize: 15 } }),
+        drawFn: () => drawText({ text: nuc, style: { tint: nucColor } }),
         poolsize: 10,
       };
     });

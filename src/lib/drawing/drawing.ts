@@ -12,6 +12,7 @@ import {
   Texture,
   Ticker,
 } from "pixi.js";
+import { v4 as uuidv4 } from "uuid";
 
 import { ValidationError } from "@lib/errors";
 import LOG from "@lib/logger";
@@ -24,6 +25,8 @@ import DejaVuSansMonoFntContents from "../../assets/DejaVuSansMono.fnt?raw";
 // If the width of a nucleotide in pixels is greater than this threshold then render the letter
 // rather than a colored rectangle.
 export const DRAW_LETTER_THRESHOLD = 12;
+
+export const MONOSPACE_FONT = "DejaVu Sans Mono";
 
 /**
  * Load shared PIXI assets (e.g. fonts) into the PIXI cache.
@@ -120,11 +123,18 @@ export const updateIfChanged = ({
   }
 };
 
+/**
+ * A custom PIXI application with a renderer, ticker, and stage.
+ */
 export class PixiApplication {
   renderer: Renderer;
   ticker: Ticker;
   stage: Container;
 
+  /**
+   * @param layered - If true, use a LayeredStage instead of a Container (enables improved
+   *  z-indexing).
+   */
   constructor({
     dim = { width: 800, height: 600 },
     layered = false,
@@ -139,20 +149,46 @@ export class PixiApplication {
     });
     this.resize(dim);
 
-    if (layered) {
-      this.stage = new LayeredStage();
-      this.stage.sortableChildren = true;
-    } else {
-      this.stage = new Container();
-    }
-    this.ticker = new Ticker();
-
-    this.ticker.add(() => {
-      this.renderer.render(this.stage);
-    });
+    this.stage = this._initStage(layered);
+    this.ticker = this._initTicker();
     this.ticker.start();
   }
 
+  /**
+   * Initialize the stage where the renderer draws to.
+   */
+  _initStage = (layered: boolean): Container => {
+    let stage;
+    if (layered) {
+      stage = new LayeredStage();
+      stage.sortableChildren = true;
+    } else {
+      stage = new Container();
+    }
+    return stage;
+  };
+
+  /**
+   * Initialize the ticker which controls the render loop.
+   */
+  _initTicker = (): Ticker => {
+    const ticker = new Ticker();
+
+    // Prevent too many unnecessary renders since we're not really animating anything.
+    ticker.speed = 0.2;
+
+    ticker.add(() => {
+      this.renderer.render(this.stage);
+    });
+    return ticker;
+  };
+
+  /**
+   * Load a RenderTexture into PIXI's cache.
+   * @param shape - The shape which the texture will be applied to.
+   * @param texture - The texture to load.
+   * @param cleanupGraphic - If true, destroy the shape after loading the texture.
+   */
   loadRenderTexture = ({
     shape,
     texture,
@@ -168,6 +204,9 @@ export class PixiApplication {
     }
   };
 
+  /**
+   * Resize the renderer and stage.
+   */
   resize = (dim: Dimensions): void => {
     if (this.renderer.view.style !== undefined) {
       this.renderer.view.style.width = dim.width + "px";
@@ -176,65 +215,86 @@ export class PixiApplication {
     this.renderer.resize(dim.width, dim.height);
   };
 
+  /**
+   * Must be called to clean up the PIXI application or else we leak memory.
+   */
   destroy = (): void => {
+    this.ticker.stop();
     this.renderer.destroy(true);
     this.stage.destroy(true);
   };
 }
 
+// Unique ID for a PIXI object in a draw pool.
 export type DrawId = string;
 
+// A PIXI object with its associated unique ID.
 export interface TaggedDrawObject {
   id: DrawId;
   object: Container;
 }
 
+// A function which returns a PIXI object to be stored in a draw pool.
 export type DrawFunction = () => Container;
 
+/**
+ * Manages a pool of pre-rendered PIXI objects which can be drawn to the screen.
+ *
+ * When an object is drawn, it is popped from the pool and made visible. When it is no longer
+ * needed it is made invisible and returned to the pool. Pool is automatically resized if we attempt
+ * to draw more objects when the pool is empty.
+ *
+ * @public id - Unique ID for this draw pool.
+ * @public stage - The PIXI container to draw to.
+ * @public drawFn - Function which is called to create a new object to be stored in the pool.
+ * @public poolsize - The starting poolsize.
+ * @public stepSize - How many objects to add to the pool when it is expanded.
+ * @public objects - Objects in the pool which are available for drawing
+ * @public activeObjects - Objects which are currently being displayed.
+ */
 export class DrawPool {
-  id: number;
+  id: string;
   stage: Container;
   drawFn: DrawFunction;
   poolsize: number;
+  stepSize: number;
   objects: TaggedDrawObject[];
   activeObjects: Map<DrawId, Container>;
-  stepSize: number;
 
   constructor({
     stage,
     drawFn,
-    poolsize,
-    stepSize,
+    poolsize = 100,
+    stepSize = 100,
   }: {
     stage: Container;
     drawFn: () => Container;
     poolsize?: number;
     stepSize?: number;
   }) {
-    poolsize = poolsize === undefined ? 100 : poolsize;
     if (poolsize <= 0) {
       throw "poolsize must be >0";
     }
 
-    this.id = Math.floor(Math.random() * 10000);
+    this.id = uuidv4();
     this.stage = stage;
-    this.stepSize = stepSize === undefined ? 100 : stepSize;
+    this.stepSize = stepSize;
+    this.poolsize = poolsize;
     this.drawFn = drawFn;
     this.objects = [];
     this.activeObjects = new Map<DrawId, Container>();
-    this.poolsize = 0;
-    this.expandPool(poolsize);
+    this._expandPool(poolsize);
   }
 
-  addToStage = (object: Container) => {
+  _addToStage = (object: Container) => {
     this.stage.addChild(object);
   };
 
-  expandPool = (newPoolsize: number): void => {
+  _expandPool = (newPoolsize: number): void => {
     const newObjects = range(this.poolsize, newPoolsize).map((id) => {
       const object = this.drawFn();
       object.visible = false;
-      this.addToStage(object);
+      this._addToStage(object);
       return { id: id.toString(), object };
     });
 
@@ -244,7 +304,7 @@ export class DrawPool {
 
   draw = (drawArgs: DrawArgs): TaggedDrawObject => {
     if (this.objects.length == 0) {
-      this.expandPool(this.poolsize + this.stepSize);
+      this._expandPool(this.poolsize + this.stepSize);
     }
     const taggedObject = this.objects.pop();
     assertIsDefined(taggedObject);
@@ -260,6 +320,9 @@ export class DrawPool {
     return taggedObject;
   };
 
+  /**
+   * Return an object to the pool.
+   */
   recycle = (id: DrawId): void => {
     const object = this.activeObjects.get(id);
     if (object === undefined) {
@@ -271,6 +334,9 @@ export class DrawPool {
     this.activeObjects.delete(id);
   };
 
+  /**
+   * Return all displayed objects to the pool.
+   */
   recycleAll = (): void => {
     for (const id of this.activeObjects.keys()) {
       this.recycle(id);
@@ -278,6 +344,7 @@ export class DrawPool {
   };
 }
 
+// Name for a draw pool in a draw pool group.
 export type DrawClass = string;
 
 export type DrawPoolConfig = {
@@ -291,6 +358,13 @@ export interface ManagedDrawObject extends TaggedDrawObject {
   drawClass: DrawClass;
 }
 
+/**
+ * A group of draw pools which contain all of the objects which need to be drawn in a scene.
+ *
+ * @public drawConfig - Defines the config for all DrawPools in the group
+ * @public pools - The DrawPools in the group.
+ * @public stage - The PIXI container to draw to.
+ */
 export class DrawPoolGroup {
   drawConfig: DrawPoolConfig;
   pools: Map<DrawClass, DrawPool>;
@@ -300,10 +374,10 @@ export class DrawPoolGroup {
     this.drawConfig = drawConfig;
     this.pools = new Map();
     this.stage = stage;
-    this.initPools();
+    this._initPools();
   }
 
-  initPools = (): void => {
+  _initPools = (): void => {
     Object.entries(this.drawConfig).forEach(([drawClass, { drawFn, poolsize }]) => {
       this.pools.set(drawClass, new DrawPool({ stage: this.stage, drawFn, poolsize }));
     });
@@ -317,10 +391,16 @@ export class DrawPoolGroup {
     return { ...taggedDrawObject, drawClass };
   };
 
+  /**
+   * Recycle a specific object in a draw pool.
+   */
   recycle = (drawClass: DrawClass, id: DrawId): void => {
     this.pools.get(drawClass)?.recycle(id);
   };
 
+  /**
+   * Recycle all objects in all draw pools.
+   */
   recycleAll = (): void => {
     for (const pool of this.pools.values()) {
       pool.recycleAll();
@@ -330,25 +410,28 @@ export class DrawPoolGroup {
 
 export type TriangleVertices = [Position, Position, Position];
 
+export interface TriangleDrawArgs extends DrawArgs {
+  readonly vertices: TriangleVertices;
+}
+
 export const drawTriangle = ({
   vertices,
-  tint,
-  layer,
-}: {
-  readonly vertices: TriangleVertices;
-  tint: number;
-  layer?: LayerGroup;
-}): Graphics => {
+  interactive = false,
+  interactiveChildren = false,
+  ...drawArgs
+}: TriangleDrawArgs): Graphics => {
   const triangle = new Graphics();
   const lastVertex = vertices[vertices.length - 1];
-  triangle.beginFill(tint).moveTo(lastVertex.x, lastVertex.y);
+  let color = drawArgs.tint;
+  if (color === undefined) {
+    color = 0xffffff;
+  }
+  triangle.beginFill(color).moveTo(lastVertex.x, lastVertex.y);
   vertices.forEach((vertex) => {
     triangle.lineTo(vertex.x, vertex.y);
   });
   triangle.endFill();
-  if (layer !== undefined) {
-    triangle.parentGroup = layer;
-  }
+  updateIfChanged({ container: triangle, interactive, interactiveChildren, ...drawArgs });
   return triangle;
 };
 
@@ -364,25 +447,21 @@ export const drawRect = ({
   return rect;
 };
 
-export const drawText = ({
-  text,
-  pos = { x: 0, y: 0 },
-  style,
-  layer,
-}: {
-  text: string;
-  pos?: Position;
+export interface TextDrawArgs extends DrawArgs {
   style?: Partial<IBitmapTextStyle>;
-  layer?: LayerGroup;
-}): BitmapText => {
+}
+
+export const drawText = ({
+  pos = { x: 0, y: 0 },
+  text = "",
+  style,
+  ...drawArgs
+}: TextDrawArgs): BitmapText => {
   style = style === undefined ? {} : style;
-  style.fontSize = style.fontSize === undefined ? 20 : style.fontSize;
-  style.fontName = style.fontName === undefined ? "DejaVu Sans Mono" : style.fontName;
+  style.fontSize = style.fontSize === undefined ? 15 : style.fontSize;
+  style.fontName = style.fontName === undefined ? MONOSPACE_FONT : style.fontName;
   style.align = style.align === undefined ? "center" : style.align;
   const textObj = new BitmapText(text, style);
-  if (layer !== undefined) {
-    textObj.parentGroup = layer;
-  }
-  textObj.position.set(pos.x, pos.y);
+  updateIfChanged({ container: textObj, pos, ...drawArgs });
   return textObj;
 };

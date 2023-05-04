@@ -95,15 +95,6 @@ const TOOLTIP_VPAD = 3;
 const TOOLTIP_SCREEN_EDGE_PADDING = 5;
 
 /**
- * Textures used in the scene.
- */
-export interface AlignedReadsTextures {
-  forwardReadCap: RenderTexture;
-  reverseReadCap: RenderTexture;
-  insertion: RenderTexture;
-}
-
-/**
  * A single field name/value pair to be displayed in the hover tooltip.
  */
 class TooltipField extends Container {
@@ -292,9 +283,6 @@ export class AlignedReadsScene extends Scene {
   // Tooltip which is displayed when the user hovers over an aligned read
   _tooltip: AlignedReadTooltip;
 
-  // Offset of the viewport from the top left corner of the buffered region
-  _viewportOffset: Position;
-
   // Width of a single nucleotide in the current viewport
   _nucWidth: number;
 
@@ -315,7 +303,6 @@ export class AlignedReadsScene extends Scene {
     this._tooltip = this._initTooltip();
     this._focusedRegion = null;
     this._alignments = null;
-    this._viewportOffset = { x: 0, y: 0 };
     this._nucWidth = 0;
     this._isDragging = false;
     document.addEventListener("mousedown", this._handleMouseDown);
@@ -373,6 +360,7 @@ export class AlignedReadsScene extends Scene {
   };
 
   _handleMouseUp = (): void => {
+    this._isDragging = false;
     document.removeEventListener("mousemove", this._dragHandler);
     document.removeEventListener("mouseup", this._handleMouseUp);
   };
@@ -391,21 +379,20 @@ export class AlignedReadsScene extends Scene {
     return tooltip;
   };
 
-  _initRenderTexture = (): RenderTexture => {
+  _initRenderTexture = (dim: Dimensions): RenderTexture => {
     const texture = RenderTexture.create({
-      width: CAP_WIDTH,
-      height: READ_HEIGHT,
       multisample: MSAA_QUALITY.HIGH,
       resolution: window.devicePixelRatio,
+      ...dim,
     });
     return texture;
   };
 
   _initTextures = (): Map<string, RenderTexture> => {
     const textures = new Map([
-      ["forwardReadCap", this._initRenderTexture()],
-      ["reverseReadCap", this._initRenderTexture()],
-      ["insertion", this._initRenderTexture()],
+      ["forwardReadCap", this._initRenderTexture({ width: CAP_WIDTH, height: READ_HEIGHT })],
+      ["reverseReadCap", this._initRenderTexture({ width: CAP_WIDTH, height: READ_HEIGHT })],
+      ["insertion", this._initRenderTexture({ width: CAP_WIDTH * 2, height: READ_HEIGHT })],
     ]);
 
     const forwardReadCapTemplate = drawTriangle({
@@ -448,6 +435,30 @@ export class AlignedReadsScene extends Scene {
     return textures;
   };
 
+  _drawInsertion = ({
+    pos = { x: 0, y: 0 },
+    width = DEFAULT_INSERTION_WIDTH,
+    tint,
+    layer,
+  }: {
+    readonly pos?: Position;
+    width?: number;
+    tint?: number;
+    layer?: LayerGroup;
+  }): Sprite => {
+    const insertion = new Sprite(this._textures.get("insertion")!);
+    updateIfChanged({
+      container: insertion,
+      pos,
+      dim: { width, height: READ_HEIGHT },
+      interactive: false,
+      interactiveChildren: false,
+      layer,
+      tint,
+    });
+    return insertion;
+  };
+
   /**
    * Draw sprite for the triangle at the end of the read which indicates its direction.
    */
@@ -474,28 +485,6 @@ export class AlignedReadsScene extends Scene {
       interactive: true,
     });
     return cap;
-  };
-
-  _drawInsertion = ({
-    pos = { x: 0, y: 0 },
-    width = DEFAULT_INSERTION_WIDTH,
-    tint,
-    layer,
-  }: {
-    readonly pos?: Position;
-    width?: number;
-    tint?: number;
-    layer?: LayerGroup;
-  }): Sprite => {
-    const insertion = new Sprite(this._textures.get("insertion")!);
-    updateIfChanged({
-      container: insertion,
-      pos,
-      dim: { width, height: READ_HEIGHT },
-      layer,
-      tint,
-    });
-    return insertion;
   };
 
   _drawForwardReadCap = ({
@@ -552,6 +541,8 @@ export class AlignedReadsScene extends Scene {
     lineLayer?: LayerGroup;
   }): Container => {
     const container = new Container();
+    container.interactive = false;
+    container.interactiveChildren = false;
     const background = drawRect({
       tint: this._styles.colors.background,
       dim: { width, height: READ_HEIGHT },
@@ -766,11 +757,10 @@ export class AlignedReadsScene extends Scene {
    *  variant types)
    */
   _displayInsertion = ({ diff, pos }: { diff: Insertion; pos: Position }): void => {
-    // TODO - Insertions being truncated in wayland
     const insertionLength = diff.sequence.length;
     const labelText = insertionLength == 1 ? diff.sequence : String(insertionLength);
     const width =
-      FONT_CHAR_WIDTH * INSERTION_FONTSIZE * labelText.length + 2 * INSERTION_LABEL_PADDING;
+      FONT_CHAR_WIDTH * INSERTION_FONTSIZE * labelText.length + 2 * INSERTION_LABEL_PADDING + 5;
     const x = pos.x - width / 2;
     this._drawPool.draw(INSERTION_POOL, {
       pos: { x, y: pos.y },
@@ -778,7 +768,7 @@ export class AlignedReadsScene extends Scene {
     });
     this._drawPool.draw(INSERTION_LABEL_POOL, {
       text: labelText,
-      pos: { x: x + INSERTION_LABEL_PADDING, y: pos.y - 2 },
+      pos: { x: x + INSERTION_LABEL_PADDING + 1, y: pos.y - 2 },
       fontSize: INSERTION_FONTSIZE,
     });
   };
@@ -827,13 +817,13 @@ export class AlignedReadsScene extends Scene {
     this._tooltip.x = pos.x;
     this._tooltip.y = pos.y;
     if (
-      pos.x - this._viewportOffset.x + this._tooltip.width + TOOLTIP_SCREEN_EDGE_PADDING >
+      pos.x - this.viewport.x + this._tooltip.width + TOOLTIP_SCREEN_EDGE_PADDING >
       this.canvas.offsetLeft + this.canvas.offsetWidth
     ) {
       this._tooltip.x -= this._tooltip.width;
     }
     if (
-      pos.y + this._tooltip.height + TOOLTIP_SCREEN_EDGE_PADDING >
+      pos.y + this.viewport.y + this._tooltip.height + TOOLTIP_SCREEN_EDGE_PADDING >
       this.canvas.offsetTop + this.canvas.offsetHeight
     ) {
       this._tooltip.y -= this._tooltip.height;
@@ -856,8 +846,8 @@ export class AlignedReadsScene extends Scene {
         this._displayTooltip({
           read,
           pos: {
-            x: event.globalX + this._viewportOffset.x,
-            y: event.globalY,
+            x: event.globalX + this.viewport.x,
+            y: event.globalY - this.viewport.y,
           },
         });
       }
@@ -958,25 +948,18 @@ export class AlignedReadsScene extends Scene {
       this._bufferDim.height
     );
 
-    this._viewportOffset = {
-      x:
-        Number(
-          this._focusedRegion.interval.start - this._alignments.bufferedRegion.interval.start
-        ) * this._nucWidth,
-      y: this._viewportOffset.y,
-    };
-    this.viewport.moveCorner(this._viewportOffset.x, this._viewportOffset.y);
+    this.viewport.moveCorner(
+      Number(this._focusedRegion.interval.start - this._alignments.bufferedRegion.interval.start) *
+        this._nucWidth,
+      this.viewport.y
+    );
   };
 
   scroll = (delta: number): void => {
-    let y = this._viewportOffset.y + delta * this._bufferDim.height;
+    let y = this.viewport.y + delta * this._bufferDim.height;
     const maxY = this._bufferDim.height - this._dim.height;
     y = Math.min(Math.max(0, y), maxY);
-    this._viewportOffset = {
-      x: this._viewportOffset.x,
-      y,
-    };
-    this.viewport.moveCorner(this._viewportOffset.x, this._viewportOffset.y);
+    this.viewport.moveCorner(this.viewport.x, y);
   };
 
   draw = () => {
