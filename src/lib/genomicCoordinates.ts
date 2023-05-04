@@ -1,6 +1,5 @@
 import type { GenomicInterval, GenomicRegion } from "@lib/bindings";
-
-import { ParseError } from "../lib/errors";
+import { ParseError } from "@lib/errors";
 
 const GENOMIC_REGION_REGEX = /(?<seqName>.*):(?<start>[0-9]+)-?(?<end>[0-9]+)?/;
 
@@ -28,7 +27,7 @@ export const parse1IndexedCoordinates = (value: string): GenomicRegion => {
     throw new ParseError(`${value} is not a valid genomic region`);
   }
   const start = BigInt(parsed.groups.start) - 1n;
-  let end = parsed.groups.end === null ? null : BigInt(parsed.groups.end);
+  let end = parsed.groups.end === undefined ? null : BigInt(parsed.groups.end);
   if (isNaN(Number(start)) || (end !== null && isNaN(Number(end)))) {
     throw new ParseError(`${value} is not a valid genomic region (invalid start/end coordinate)`);
   }
