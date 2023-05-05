@@ -16,6 +16,20 @@
     border: none;
   }
 
+  button {
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #cbd5e1;
+    color: #475569;
+  }
+
+  button:focus {
+    background: #94a3b8;
+    color: #f1f5f9;
+  }
+
   .btn-sm {
     font-size: 1em;
     padding: 0.1em;

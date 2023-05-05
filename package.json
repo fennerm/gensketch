@@ -13,9 +13,8 @@
     ],
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "svelte": "./dist/index.js",
-            "vite": "./vite.config.ts"
+            "svelte": "./dist/src/main.js",
+            "vite": "./dist/vite.config.js"
         }
     },
     "scripts": {
@@ -24,11 +23,13 @@
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
         "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
         "dev": "vite",
-        "lint": "cd src-tauri; cargo clippy; cd ..; eslint src",
+        "lint-backend": "cd src-tauri; cargo clippy; cd ..",
+        "lint-frontend": "eslint src",
+        "lint": "npm run lint-backend; npm run lint-frontend",
         "format": "prettier-eslint --write '**/*.{js,ts,html,css,scss,svelte}'",
         "preview": "vite preview",
-        "tauri": "RUST_BACKTRACE=1 RUST_LOG=debug tauri",
         "tauri-build": "tauri build",
+        "tauri-prd": "npm run tauri-build && ./src-tauri/target/release/gensketch",
         "tauri-dev": "RUST_BACKTRACE=1 RUST_LOG=debug tauri dev",
         "typecov": "type-coverage --strict --detail --ignore-catch | grep -v error",
         "test-frontend": "NODE_NO_WARNINGS=1 NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --silent --config package.json src",

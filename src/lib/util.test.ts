@@ -1,8 +1,30 @@
-import { adjustDimensions } from "./util";
+import { adjustDimensions, hexToString, monkeyPatchBigInt, range } from "./util";
 
 const rounded = (floats: number[]): number[] => {
   return floats.map((f) => Math.round(f));
 };
+
+test("hexToString works with simple case", async () => {
+  expect(hexToString(0x000000)).toBe("#000000");
+});
+
+test("hexToString works with simple truncated hex", async () => {
+  expect(hexToString(0xff)).toBe("#0000ff");
+});
+
+test("number range()", async () => {
+  expect(range(0, 3)).toEqual([0, 1, 2]);
+});
+
+test("bigint range()", async () => {
+  expect(range(0n, 3n)).toEqual([0n, 1n, 2n]);
+});
+
+test("monkeyPathBigInt", async () => {
+  expect(() => JSON.stringify(3n)).toThrow();
+  monkeyPatchBigInt();
+  expect(JSON.stringify(3n)).toBe('"3"');
+});
 
 test("adjustDimensions works when item resized left", async () => {
   const dimensions = [50, 50];

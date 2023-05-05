@@ -5,20 +5,28 @@
 
   import { initializeBackend, listenForUserConfigUpdated, panFocusedSplit } from "@lib/backend";
   import type { Direction, StyleConfig } from "@lib/bindings";
+  import AlertArea from "@lib/components/AlertArea.svelte";
   import SplitGrid from "@lib/components/SplitGrid.svelte";
   import Toolbar from "@lib/components/Toolbar.svelte";
+  import { defaultErrorHandler } from "@lib/errorHandling";
   import LOG from "@lib/logger";
   import { USER_CONFIG_STORE } from "@lib/stores/UserConfigStore";
   import { hexToString, monkeyPatchBigInt } from "@lib/util";
-  import AlertArea from "@lib/components/AlertArea.svelte";
 
   // Maximum keyboard repeat rate for panning focused split. This is prevent the backend from
   // getting overwhelmed when arrow keys are held down.
   const keyRepeatRate = 50; // ms
 
   // Timestamp of last keydown event which was not ignored
-  let lastKeyTime = 0;
+  // Storing this as an array so that svelte doesn't rerender when the variable is updated. There
+  // must be a better way to do this??
+  let lastKeyTime = [0];
 
+  /**
+   * When the user config is updated in the backend, inject the styles into CSS variables.
+   *
+   * This allows us to reference the user's preferred theme from CSS.
+   */
   const updateTheme = (styles: StyleConfig) => {
     for (let [prop, color] of Object.entries(styles.colors)) {
       let varString = `--color-${prop}`;
@@ -28,9 +36,14 @@
   };
 
   onMount(() => {
-    initializeBackend().catch((err) => LOG.error(err));
+    initializeBackend().catch((error) =>
+      defaultErrorHandler({
+        msg: `Failed to initialize backend: ${error}`,
+        alertMsg: `Gensketch failed to load. This is a bug. Error: ${error}`,
+      })
+    );
     monkeyPatchBigInt();
-    window.addEventListener("keydown", handleKeyDown, false);
+    window.addEventListener("keydown", handleKeyDown);
   });
 
   onDestroy(() => {
@@ -42,10 +55,10 @@
    */
   const handleKeyDown = (event: KeyboardEvent) => {
     const now = performance.now();
-    if (now - lastKeyTime < keyRepeatRate) {
+    if (now - lastKeyTime[0] < keyRepeatRate) {
       return;
     }
-    lastKeyTime = now;
+    lastKeyTime[0] = now;
 
     switch (event.key) {
       case "ArrowLeft":
@@ -56,7 +69,7 @@
         const direction = event.key.replace("Arrow", "") as Direction;
         LOG.debug(`Panning focused split ${direction}`);
         event.preventDefault();
-        panFocusedSplit(direction).catch((err) => LOG.error(err));
+        panFocusedSplit(direction).catch((err) => LOG.error(`Failed to pan split: ${err}`));
         break;
       }
     }

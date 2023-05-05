@@ -1,5 +1,11 @@
 import { sum } from "lodash-es";
 
+/**
+ * Monkeypatch bigints to be JSON serializable.
+ *
+ * Since bigints are used throughout the application we want to avoid surprising errors while
+ * logging data structures etc.
+ */
 export const monkeyPatchBigInt = () => {
   Object.defineProperty(BigInt.prototype, "toJSON", {
     get() {
@@ -9,6 +15,9 @@ export const monkeyPatchBigInt = () => {
   });
 };
 
+/**
+ * Create an array with a range of numbers (with bigint support).
+ */
 export function range(start: bigint, end: bigint): bigint[];
 export function range(start: number, end: number): number[];
 export function range(start: any, end: any): any[] {
@@ -19,11 +28,11 @@ export function range(start: any, end: any): any[] {
   }
 }
 
+/**
+ * Convert a number to a string hex code.
+ */
 export const hexToString = (hex: number): string => {
-  let hexString = `${hex.toString(16)}`;
-  if (hexString.length < 3) {
-    hexString = hexString.padStart(3 - hexString.length, "0");
-  }
+  let hexString = `${hex.toString(16)}`.padStart(6, "0");
   hexString = "#" + hexString;
   return hexString;
 };
