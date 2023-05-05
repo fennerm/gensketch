@@ -1,5 +1,5 @@
-/// Automatically generate flamegraphs for benchmarks
-/// See https://www.jibbow.com/posts/criterion-flamegraphs/ for inspiration
+//! Automatically generate flamegraphs for benchmarks
+//! See https://www.jibbow.com/posts/criterion-flamegraphs/ for inspiration
 use std::io::Write;
 use std::{fs::File, os::raw::c_int, path::Path};
 
@@ -9,14 +9,16 @@ use inferno::flamegraph;
 use pprof::protos::Message;
 use pprof::{ProfilerGuard, Report};
 
-pub fn set_flamegraph_options<'a>() -> flamegraph::Options<'a> {
+/// Set up flamegraph configuration for benchmarks
+fn set_flamegraph_options<'a>() -> flamegraph::Options<'a> {
     let mut options = flamegraph::Options::default();
     options.font_size = 4;
     options.min_width = 0.0001;
     options
 }
 
-pub fn write_flamegraph<W: Write>(report: &Report, writer: W) -> Result<()> {
+/// Write a flamegraph to a .svg file
+fn write_flamegraph<W: Write>(report: &Report, writer: W) -> Result<()> {
     let lines: Vec<String> = report
         .data
         .iter()
@@ -52,6 +54,8 @@ pub fn write_flamegraph<W: Write>(report: &Report, writer: W) -> Result<()> {
     Ok(())
 }
 
+/// Write benchmark report to a .proto file
+/// .proto file can be loaded into IDE or pprof for visualization
 fn write_protobuf_report(report: &Report, writer: &mut File) {
     let profile = report.pprof().unwrap();
 
@@ -60,6 +64,10 @@ fn write_protobuf_report(report: &Report, writer: &mut File) {
     writer.write_all(&content).unwrap();
 }
 
+/// Custom profiler for use with criterion
+///
+/// Automatically creates flamegraph plots and pprof .proto files for each benchmark in
+/// src-tauri/benches
 pub struct FlamegraphProfiler<'a> {
     name: String,
     frequency: c_int,
