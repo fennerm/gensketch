@@ -1,25 +1,18 @@
-export type Size = string | number;
-
-export interface CSSDimensions {
-  width: Size;
-  height: Size;
-}
-
-export type FlexDirection = "row" | "column";
-
+/** Shared type definitions which are used throughout the application. */
 export interface Dimensions {
   width: number;
   height: number;
 }
 
+// Copied from tauri since they don't export this interface for some reason
 export interface Event<T> {
-  /** Event name */
+  // Event name
   event: string;
-  /** The label of the window that emitted this event. */
+  // The label of the window that emitted this event.
   windowLabel: string;
-  /** Event identifier used to unlisten */
+  // Event identifier used to unlisten
   id: number;
-  /** Event payload */
+  // Event payload
   payload: T;
 }
 
