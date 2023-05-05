@@ -85,7 +85,7 @@ impl<T: Alignment> AlignmentSearchList<T, SortStart> {
             if last.start() < min_start {
                 return None;
             }
-        } else if self.inner.len() == 0 {
+        } else if self.inner.is_empty() {
             return None;
         }
 
@@ -127,7 +127,7 @@ impl<T: Alignment> AlignmentSearchList<T, SortEnd> {
             if first.end() > max_end {
                 return None;
             }
-        } else if self.inner.len() == 0 {
+        } else if self.inner.is_empty() {
             return None;
         }
 

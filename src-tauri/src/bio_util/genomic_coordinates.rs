@@ -38,6 +38,10 @@ impl GenomicRegion {
         self.interval.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn interval(&self) -> &GenomicInterval {
         &self.interval
     }
@@ -81,6 +85,10 @@ impl GenomicInterval {
         self.end - self.start
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn expand(&self, by: u64) -> Result<Self> {
         Self::new(self.start.saturating_sub(by), self.end + by)
     }
@@ -90,7 +98,7 @@ impl GenomicInterval {
     }
 
     pub fn overlaps(&self, other: &GenomicInterval) -> bool {
-        self.start <= other.end && self.end <= self.end
+        self.start <= other.end && other.start <= self.end
     }
 }
 
@@ -104,7 +112,7 @@ impl TryFrom<(u64, u64)> for GenomicInterval {
 
 impl From<GenomicRegion> for GenomicInterval {
     fn from(item: GenomicRegion) -> Self {
-        item.interval.clone()
+        item.interval
     }
 }
 

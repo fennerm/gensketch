@@ -31,9 +31,9 @@ impl FastaReader {
         self.reader.fetch(&region.seq_name, region.start(), region.end()).with_context(|| {
             format!("Failed to fetch {} from {}", region, self.reference_path.display())
         })?;
-        let mut sequence: Vec<u8> = Vec::new();
+        let mut sequence: Vec<u8> = vec![0; region.len() as usize];
         self.reader.read(&mut sequence)?;
-        sequence = sequence.into_iter().filter(|c| *c != b'\n').collect();
+        sequence.retain(|c| *c != b'\n');
         let view = SequenceView::new(sequence, region.start());
         Ok(view)
     }

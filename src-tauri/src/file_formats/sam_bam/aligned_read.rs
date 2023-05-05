@@ -73,7 +73,7 @@ impl AlignedRead {
             // Accounting for the fact that softclips don't increment the read position per the SAM
             // spec.
             if let SequenceDiff::SoftClip { interval, .. } = diff {
-                genomic_region.interval.end += interval.len() as u64;
+                genomic_region.interval.end += interval.len();
             }
         }
         let is_reverse = record.is_reverse();
@@ -227,7 +227,6 @@ pub fn pair_reads(reads: Vec<AlignedRead>) -> Result<Vec<AlignedPair>> {
         existing_reads.push_back(read);
     }
     let mut pairs = Vec::new();
-    let mut i = 0;
     for (_, reads) in reads_by_name.iter_mut() {
         let read1 = reads.pop_front().unwrap();
         match &read1.mate_pos {
@@ -246,7 +245,6 @@ pub fn pair_reads(reads: Vec<AlignedRead>) -> Result<Vec<AlignedPair>> {
                 pairs.push(AlignedPair::UnpairedReadKind(pair));
             }
         }
-        i = i + 1;
     }
     Ok(pairs)
 }

@@ -16,6 +16,7 @@ fn bam_read() {
 }
 
 pub fn bam_read_benchmark(c: &mut Criterion) {
+    #[allow(clippy::unit_arg)]
     c.bench_function("bench", |b| b.iter(|| black_box(bam_read())));
 }
 

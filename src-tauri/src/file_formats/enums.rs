@@ -43,7 +43,7 @@ impl AlignmentStackKind {
         }
     }
     pub fn buffered_region(&self) -> &Option<GenomicRegion> {
-        match &*self {
+        match self {
             Self::AlignedPairKind(AlignmentStack { buffered_region, .. }) => buffered_region,
         }
     }

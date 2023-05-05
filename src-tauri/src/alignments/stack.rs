@@ -43,7 +43,7 @@ impl<T: Alignment> AlignmentStack<T> {
                     && buffered_region.end() >= alignment.start()
             })
         }
-        self.rows.retain(|row| row.len() > 0);
+        self.rows.retain(|row| !row.is_empty());
         log::debug!(
             "Trimmed {} alignments from stack {}",
             num_alignments - self.count_alignments(),
@@ -115,20 +115,15 @@ impl<T: Alignment> AlignmentStack<T> {
         let mut num_added = 0;
         while row_idx < self.rows.len() {
             let mut min_start = 0;
-            if row_idx < self.rows.len() && self.rows[row_idx].len() > 0 {
+            if row_idx < self.rows.len() && !self.rows[row_idx].is_empty() {
                 // Pad reads slightly so that adjacent reads don't appear merged in the UI
                 let row_length = self.rows[row_idx].len();
                 min_start = self.rows[row_idx][row_length - 1].end() + PADDING;
             }
-            loop {
-                match new_alignments.pop_after(min_start) {
-                    Some(next_alignment) => {
-                        min_start = next_alignment.end() + PADDING;
-                        self.rows[row_idx].push_back(next_alignment);
-                        num_added += 1;
-                    }
-                    None => break,
-                }
+            while let Some(next_alignment) = new_alignments.pop_after(min_start) {
+                min_start = next_alignment.end() + PADDING;
+                self.rows[row_idx].push_back(next_alignment);
+                num_added += 1;
             }
             row_idx += 1;
         }
@@ -168,6 +163,12 @@ impl<T: Alignment> AlignmentStack<T> {
         let mut end_sorted = new_alignments.sort_by_end();
         self.extend_stack_left(&mut end_sorted);
         Ok(())
+    }
+}
+
+impl<T: Alignment> Default for AlignmentStack<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

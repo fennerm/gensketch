@@ -34,9 +34,8 @@ impl SequenceView {
             return Err(anyhow::anyhow!("Requested subsequence is outside of the sequence"));
         }
         let sequence_copy = self.sequence.clone();
-        let seq = sequence_copy[(start - self.offset) as usize..(end - self.offset) as usize]
-            .to_vec()
-            .clone();
+        let seq =
+            sequence_copy[(start - self.offset) as usize..(end - self.offset) as usize].to_vec();
         Ok(Self::new(seq, start))
     }
 }

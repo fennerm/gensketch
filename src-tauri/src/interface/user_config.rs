@@ -67,7 +67,7 @@ pub struct UserConfig {
 
 /// Parse a hex code string to its u32 representation
 fn parse_hex(hex_string: &str) -> Result<u32> {
-    let hex_string = hex_string.trim_start_matches("0x").trim_start_matches("#");
+    let hex_string = hex_string.trim_start_matches("0x").trim_start_matches('#');
     u32::from_str_radix(hex_string, 16)
         .with_context(|| format!("{} is not a valid hex code", hex_string))
 }

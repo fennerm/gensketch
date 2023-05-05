@@ -64,8 +64,7 @@ impl StackReader {
         let alignments = match &mut self.reader {
             AlignmentReaderKind::BamKind(reader) => {
                 let aligned_reads = reader.read(region, seqview)?;
-                let paired = pair_reads(aligned_reads)?;
-                paired
+                pair_reads(aligned_reads)?
             }
         };
         match &mut *self.stack.write() {
@@ -93,7 +92,7 @@ mod tests {
 
     fn read_example_stack() -> StackReader {
         let bam_path = get_test_data_path("fake-genome.reads.bam");
-        let mut reader = StackReader::new(&bam_path).unwrap();
+        let mut reader = StackReader::new(bam_path).unwrap();
         let fasta_path = get_test_data_path("fake-genome.fa");
         let mut fasta_reader = FastaReader::new(fasta_path).unwrap();
         let region = GenomicRegion::new("mt", 1000, 1500).unwrap();
@@ -108,7 +107,7 @@ mod tests {
         let stack = reader.stack();
         let stack_lock = stack.read();
         if let AlignmentStackKind::AlignedPairKind(stack) = &*stack_lock {
-            assert!(stack.rows.len() > 0)
+            assert!(!stack.rows.is_empty())
         } else {
             panic!("Unexpected alignment stack kind")
         }

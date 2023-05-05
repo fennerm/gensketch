@@ -1,7 +1,7 @@
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-fn dir_contains(dir: &PathBuf, filename: &str) -> bool {
+fn dir_contains(dir: &Path, filename: &str) -> bool {
     for entry in dir.read_dir().unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();

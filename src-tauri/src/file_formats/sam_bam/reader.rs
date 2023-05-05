@@ -42,7 +42,7 @@ impl AlignmentReader for BamReader {
             .collect::<std::result::Result<Vec<_>, _>>()?
             .par_iter()
             .map(|record| {
-                let alignment = AlignedRead::from_record(&record, refseq, &self.tid_map)?;
+                let alignment = AlignedRead::from_record(record, refseq, &self.tid_map)?;
                 Ok(alignment)
             })
             .collect::<Result<_>>()?;
@@ -71,9 +71,9 @@ mod tests {
         let bam_path = get_test_data_path(bam_filename);
         let fasta_path = get_test_data_path(fasta_filename);
         let mut fasta_reader = FastaReader::new(fasta_path).unwrap();
-        let sequence_view = fasta_reader.read(&region).unwrap();
-        let mut bam_reader = BamReader::new(&bam_path).unwrap();
-        let alignments = bam_reader.read(&region, &sequence_view).unwrap();
+        let sequence_view = fasta_reader.read(region).unwrap();
+        let mut bam_reader = BamReader::new(bam_path).unwrap();
+        let alignments = bam_reader.read(region, &sequence_view).unwrap();
         assert_eq!(alignments.len(), expected_num_reads);
     }
 

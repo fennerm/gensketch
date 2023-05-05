@@ -34,7 +34,7 @@ pub fn get_focused_region(
 ) -> CommandResult<serde_json::Value> {
     let focused_region =
         state.split_grid.read().get_split(&split_id)?.read().focused_region.clone();
-    let json = serde_json::to_value(&focused_region)?;
+    let json = serde_json::to_value(focused_region)?;
     Ok(json)
 }
 

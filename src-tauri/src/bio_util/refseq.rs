@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -44,7 +44,7 @@ impl ReferenceSequence {
     }
 
     pub fn get_seq_length(&self, seq_name: &str) -> Result<u64> {
-        self.seq_lengths.get(seq_name).map(|len| *len).with_context(|| {
+        self.seq_lengths.get(seq_name).cloned().with_context(|| {
             format!(
                 "Sequence named {} is not present on reference sequence {}",
                 seq_name, self.name
@@ -58,8 +58,8 @@ impl ReferenceSequence {
     }
 }
 
-fn dir_contains(dir: &PathBuf, filename: &str) -> bool {
-    let mut path = dir.clone();
+fn dir_contains(dir: &Path, filename: &str) -> bool {
+    let mut path = dir.to_path_buf();
     path.push(filename);
     path.exists()
 }
@@ -95,7 +95,7 @@ mod tests {
     pub fn test_get_default_reference_sequence() {
         let result = get_default_reference().unwrap();
         assert_eq!(result.name, "HG19");
-        let path_end: Vec<_> = result.path.into_iter().rev().take(2).collect();
+        let path_end: Vec<_> = result.path.iter().rev().take(2).collect();
         assert_eq!(path_end, vec!("fake-genome.fa", "test_data"));
     }
 

@@ -58,7 +58,7 @@ mod tests {
     #[test]
     pub fn test_init_tid_map() {
         let bam_path = get_test_data_path("fake-genome.reads.bam");
-        let tid_map = TidMap::new(&bam_path).unwrap();
+        let tid_map = TidMap::new(bam_path).unwrap();
         assert_eq!(tid_map.get_seq_name(0), Some(&"euk_genes".to_owned()));
         assert_eq!(tid_map.get_seq_name(1), Some(&"mt".to_owned()));
         assert_eq!(tid_map.get_tid("euk_genes"), Some(&0));

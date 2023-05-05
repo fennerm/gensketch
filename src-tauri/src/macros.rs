@@ -37,6 +37,12 @@ macro_rules! impl_wrapped_uuid {
             }
         }
 
+        impl Default for $t {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+
         impl std::ops::Deref for $t {
             type Target = Uuid;
             fn deref(&self) -> &Uuid {

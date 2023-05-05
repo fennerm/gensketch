@@ -91,6 +91,7 @@ fn parse_object(json: serde_json::Value) -> serde_json::Map<String, serde_json::
     }
 }
 
+#[derive(Default)]
 pub struct StubEventEmitter {
     pub calls: Mutex<VecDeque<(Event, serde_json::Value)>>,
 }

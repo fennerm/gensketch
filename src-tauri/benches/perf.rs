@@ -81,11 +81,11 @@ impl<'a> Profiler for FlamegraphProfiler<'a> {
     fn stop_profiling(&mut self, _benchmark_id: &str, benchmark_dir: &Path) {
         std::fs::create_dir_all(benchmark_dir).unwrap();
         let flamegraph_path = benchmark_dir.join(format!("{}.svg", self.name));
-        let flamegraph_file = File::create(&flamegraph_path)
-            .expect("File system error while creating flamegraph svg");
+        let flamegraph_file =
+            File::create(flamegraph_path).expect("File system error while creating flamegraph svg");
         let protobuf_path = benchmark_dir.join(format!("{}.pb", self.name));
         let mut protobuf_file =
-            File::create(&protobuf_path).expect("File system error while creating protobuf report");
+            File::create(protobuf_path).expect("File system error while creating protobuf report");
         if let Some(profiler) = self.active_profiler.take() {
             let report = profiler.report().build().unwrap();
             write_protobuf_report(&report, &mut protobuf_file);

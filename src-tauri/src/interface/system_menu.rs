@@ -23,7 +23,7 @@ pub fn open_files(app: AppHandle) {
             let state: tauri::State<Backend> = app.state();
             for file_path in file_paths {
                 let result = state.split_grid.read().add_track(&event_emitter, file_path.clone());
-                if let Err(_) = result {
+                if result.is_err() {
                     log::error!("Failed to add track from file: {}", file_path.to_string_lossy());
                 }
             }
