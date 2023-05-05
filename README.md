@@ -1,6 +1,6 @@
 # GenSketch
 
-**This is a pre-alpha project which is not functional yet (and may never be).** GenSketch is a
+**This project is on indefinite hiatus due to conflict of interest with my current employer.** GenSketch is a
 genomics data viewer heavily inspired by IGV. As compared to existing viewers, GenSketch aims to
 provide more powerful interactive editing functionality.
 
